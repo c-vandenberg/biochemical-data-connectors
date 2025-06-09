@@ -12,11 +12,11 @@ from chembl_webresource_client.new_client import new_client
 from src.constants import RestApiEndpoints
 from src.utils.api.mappings import uniprot_to_gene_id_mapping
 from src.utils.api.pubchem_api import (get_active_aids, get_active_cids,
-                                    get_active_cids_wrapper, get_compounds_in_batches,
-                                    batch_iterable, get_compound_potency)
+                                       get_active_cids_wrapper, get_compounds_in_batches,
+                                       batch_iterable, get_compound_potency)
 
 
-class BaseBioactivesExtractor(ABC):
+class BaseBioactivesConnector(ABC):
     """
     Abstract base class for extracting bioactive compounds from a data source.
 
@@ -63,7 +63,7 @@ class BaseBioactivesExtractor(ABC):
         pass
 
 
-class ChEMBLBioactivesExtractor(BaseBioactivesExtractor):
+class ChEMBLBioactivesConnector(BaseBioactivesConnector):
     """
     Extracts bioactive compounds for a given target from ChEMBL using a UniProt accession.
 
@@ -172,7 +172,7 @@ class ChEMBLBioactivesExtractor(BaseBioactivesExtractor):
         return bioactive_smiles
 
 
-class PubChemBioactivesExtractor(BaseBioactivesExtractor):
+class PubChemBioactivesConnector(BaseBioactivesConnector):
     """
     Extracts bioactive compounds for a given target from PubChem using a UniProt accession.
 
