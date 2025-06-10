@@ -1,0 +1,40 @@
+# pyproject.toml
+
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "biochemical-data-connectors"
+version = "0.1.0"
+description = "A Python package to extract chemical, biochemical, and bioactivity data from public databases like ORD, ChEMBL and PubChem."
+readme = "README.md"
+license = { text = "MIT License" }
+authors = [
+    { name = "Christopher van den Berg", email = "cvandenberg1105@googlemail.com" }
+]
+keywords = ["bioinformatics", "cheminformatics", "drug discovery", "chembl", "pubchem", "bioactivity", "api"]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "chembl-webresource-client~=0.10.9",
+    "ord-schema~=0.3.99",
+    "pubchempy~=1.0.4",
+    "rdkit~=2025.3.2",
+    "requests~=2.32.4"
+]
+
+[project.urls]
+Repository = "https://github.com/your-username/biochemical-data-connectors"
+"Bug Tracker" = "https://github.com/your-username/biochemical-data-connectors/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

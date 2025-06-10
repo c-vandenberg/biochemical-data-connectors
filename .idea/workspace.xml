@@ -1,11 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="9df20dc1-7b78-4534-94d9-0187a3466f29" name="Changes" comment="" />
+    <list default="true" id="9df20dc1-7b78-4534-94d9-0187a3466f29" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/utils/api/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/connectors/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/connectors/bioactive_compounds_connectors.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/connectors/bioactive_compounds_connectors.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/connectors/ord_connectors.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/connectors/ord_connectors.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/connectors/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/api/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/utils/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/api/mappings.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/utils/api/mappings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/api/pubchem_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/biochemical-data-connectors/utils/api/pubchem_api.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -22,9 +44,21 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "master"
+    "git-widget-placeholder": "feature/v0.1.0-migrate-connector-logic-from-aidockflow",
+    "last_opened_file_path": "/home/chris-vdb/Computational-Chemistry/biochemical-data-connectors/src/utils/api",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/utils/api" />
+      <recent name="$PROJECT_DIR$/src/utils" />
+      <recent name="$PROJECT_DIR$/src/connectors" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/biochemical-data-connectors" />
+    </key>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

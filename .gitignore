@@ -1,0 +1,54 @@
+# --- Byte-code and Caches ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+ENV/
+*.env
+
+
+# --- Build, Distribution, and Packaging ---
+build/
+dist/
+*.egg-info/
+wheels/
+pip-wheel-metadata/
+
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+
+
+# --- IDE and Editor Files ---
+.idea/          # PyCharm
+.vscode/        # VS Code
+*.sublime-project
+*.sublime-workspace
+
+
+# --- Operating System Files ---
+.DS_Store
+Thumbs.db
+
+
+# --- Logs and Data ---
+*.log
+*.log.*
+*.sqlite3
+
+
+# --- Secrets and Environment Variables ---
+.env
+.env.*
+!/.env.example
