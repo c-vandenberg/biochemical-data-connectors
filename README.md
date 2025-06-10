@@ -22,7 +22,7 @@
 ## Installation
 You can install this package locally via:
 ```
-pip install ml-training-base
+pip install biochemical-data-connectors
 ```
 
 ## Quick Start
