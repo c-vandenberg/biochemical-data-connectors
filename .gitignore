@@ -5,6 +5,11 @@ __pycache__/
 *.pyd
 
 
+# .idea and .run directories
+.run/
+.idea/
+
+
 # --- Virtual Environments ---
 venv/
 .venv/
