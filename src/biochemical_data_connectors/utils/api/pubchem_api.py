@@ -4,70 +4,100 @@ from typing import List, Iterator, Optional
 
 import pubchempy as pcp
 
-from src.constants import RestApiEndpoints
+from src.biochemical_data_connectors.constants import RestApiEndpoints
 
 
-def get_active_aids(target_gene_id: str) -> List[str]:
-    """Query PubChem to get assay IDs for a given target GeneID."""
+def get_active_aids(target_gene_id: str, logger: Optional[logging.Logger] = None) -> List[str]:
+    """
+    Query PubChem's BioAssay database to get all assay IDs (AIDs) associated
+    with a specific target, identified by its NCBI GeneID.
+
+    Parameters
+    ----------
+    target_gene_id : str
+        The NCBI GeneID of the target protein.
+    logger : logging.Logger, optional
+        A logger instance for logging potential errors. If None, errors will
+        be printed to standard output. Default is None.
+
+    Returns
+    -------
+    List[str]
+        A list of assay ID strings, or an empty list if an error occurs or
+        no AIDs are found.
+    """
     assay_id_url = RestApiEndpoints.PUBCHEM_ASSAYS_IDS_FROM_GENE_ID.url(
         target_gene_id=target_gene_id
     )
-    response = requests.get(assay_id_url, timeout=10)
-    response.raise_for_status()
-    data = response.json()
-
-    return data.get("IdentifierList", {}).get("AID", [])
-
-
-def get_active_aids_wrapper(target_gene_id: str, logger: logging.Logger) -> List[str]:
     try:
-        return get_active_aids(target_gene_id)
+        response = requests.get(assay_id_url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        return data.get("IdentifierList", {}).get("AID", [])
     except Exception as e:
-        if logger:
-            logger.error(f"Error retrieving assay IDs for GeneID {target_gene_id}: {e}")
-        else:
-            print(f"Error retrieving assay IDs for GeneID {target_gene_id}: {e}")
+        message = f"Error retrieving assay IDs for GeneID {target_gene_id}: {e}"
+        logger.error(message) if logger else print(message)
 
         return []
 
 
-def get_active_cids(aid: str) -> List[int]:
-    """Query PubChem assay details to get active compound IDs for a given assay ID."""
+def get_active_cids(aid: str, logger: Optional[logging.Logger] = None) -> List[int]:
+    """
+    Query a PubChem assay by its assay ID to get the CIDs of all active compounds.
+
+    Parameters
+    ----------
+    aid : str
+        The PubChem Assay ID (AID) to query.
+    logger : logging.Logger, optional
+        A logger instance for logging potential errors. If None, errors will
+        be printed to standard output. Default is None.
+
+    Returns
+    -------
+    List[int]
+        A list of integer Compound IDs (CIDs) for active compounds, or an
+        empty list if an error occurs.
+    """
     compound_id_url = RestApiEndpoints.PUBCHEM_COMPOUND_ID_FROM_ASSAY_ID.url(aid=aid)
-    response = requests.get(compound_id_url, timeout=10)
-    response.raise_for_status()
-    data = response.json()
-
-    return data.get("InformationList", {}).get("Information", [])[0].get("CID", [])
-
-
-def get_active_cids_wrapper(aid: str, logger: logging.Logger = None) -> List[int]:
     try:
-        return get_active_cids(aid)
+        response = requests.get(compound_id_url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        return data.get("InformationList", {}).get("Information", [])[0].get("CID", [])
     except Exception as e:
-        if logger:
-            logger.error(f"Error processing assay {aid}: {e}")
-        else:
-            print(f"Error processing assay {aid}: {e}")
+        message = f"Error processing assay {aid}: {e}"
+        logger.error(message) if logger else print(message)
 
         return []
 
 
 def batch_iterable(iterable: List, n: int = 1000) -> Iterator[List]:
     """
-    Yield successive n-sized batches from the iterable.
+    Splits a sequence into smaller, successive batches of a given size.
 
     Parameters
     ----------
-    iterable : List
-        The list to split into batches.
+    iterable : Sequence[Any]
+        The sequence (e.g., list) to split into batches.
     n : int, optional
-        The batch size, by default 100.
+        The desired batch size. Default is 1000.
 
     Yields
     ------
-    Iterator[List]
-        A list containing a batch of elements from the original iterable.
+    Iterator[Sequence[Any]]
+        A generator that yields one batch (as a list or slice) at a time.
+
+    Examples
+    --------
+    >>> my_list = [1, 2, 3, 4, 5, 6, 7]
+    >>> for batch in batch_iterable(my_list, 3):
+    ...     print(list(batch))
+    [1, 2, 3]
+    [4, 5, 6]
+    [7]
     """
     iter_len = len(iterable)
     for idx in range(0, iter_len, n):
@@ -80,21 +110,33 @@ def get_compounds_in_batches(
     logger: logging.Logger = None
 ) -> List[pcp.Compound]:
     """
-    Retrieve compound details from PubChem for a list of compound IDs (CIDs) in batches.
+    Retrieve full compound details from PubChem for a list of CIDs.
+
+    This function processes the CIDs in batches to avoid creating overly
+    long API requests and to handle errors gracefully for individual batches.
 
     Parameters
     ----------
     cids : List[int]
-        List of PubChem compound IDs.
+        A list of PubChem Compound IDs (CIDs) to retrieve.
     batch_size : int, optional
-        Number of CIDs per batch to query. Default is 100.
+        The number of CIDs to include in each batch request to PubChemPy.
+        Default is 1000.
     logger : logging.Logger, optional
-        Logger to log error or informational messages.
+        A logger instance for logging potential errors during batch processing.
+        If None, errors are printed to standard output. Default is None.
 
     Returns
     -------
     List[pcp.Compound]
-        A list of compound objects retrieved from PubChem.
+        A list of `pubchempy.Compound` objects. This list may be smaller than
+        the input list if some CIDs were invalid or if errors occurred.
+
+    Notes
+    -----
+    Errors encountered during the processing of a specific batch are logged
+    and that batch is skipped, allowing the function to continue with the
+    remaining batches.
     """
     compounds = []
     for cid_batch in batch_iterable(cids, batch_size):
@@ -120,15 +162,34 @@ def get_compound_potency(
     Retrieve a potency value (e.g., Kd in nM) for a compound by querying the
     PubChem bioassay endpoint.
 
+    This function queries the PubChem BioAssay summary for a given compound's
+    CID. It parses the results to find activity data that matches the specified
+    `target_gene_id` and `bioactivity_measure`. If multiple values are found,
+    the lowest (most potent) value is returned.
+
     Parameters
     ----------
     compound : pcp.Compound
-        A compound object from PubChem.
+        A `pubchempy.Compound` object for which to retrieve potency.
+    target_gene_id : str
+        The NCBI GeneID of the target protein, used to filter bioassays.
+    bioactivity_measure : str
+        The type of activity to search for (e.g., 'Kd', 'IC50'). The match
+        is case-insensitive.
+    logger : logging.Logger, optional
+        A logger instance for logging potential errors during the process.
+        If None, errors will not be logged. Default is None.
 
     Returns
     -------
     Optional[float]
-        The potency value if available, otherwise None.
+        The lowest potency value found (in nM), or `None` if no matching
+        activity data is found or if an error occurs.
+
+    Notes
+    -----
+    - The function expects activity values in micromolar (µM) from the PubChem
+      API and converts them to nanomolar (nM) before returning.
     """
     cid = compound.cid
     assay_summary_url =  RestApiEndpoints.PUBCHEM_ASSAY_SUMMARY_FROM_CID.url(cid=cid)

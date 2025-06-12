@@ -9,11 +9,15 @@ from typing import List, Optional
 import pubchempy as pcp
 from chembl_webresource_client.new_client import new_client
 
-from src.constants import RestApiEndpoints
-from src.utils.api.mappings import uniprot_to_gene_id_mapping
-from src.utils.api.pubchem_api import (get_active_aids, get_active_cids,
-                                       get_active_cids_wrapper, get_compounds_in_batches,
-                                       batch_iterable, get_compound_potency)
+from src.biochemical_data_connectors.constants import RestApiEndpoints
+from src.biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping
+from src.biochemical_data_connectors.utils.api.pubchem_api import (
+    get_active_aids,
+    get_active_cids,
+    get_compounds_in_batches,
+    batch_iterable,
+    get_compound_potency
+)
 
 
 class BaseBioactivesConnector(ABC):
@@ -236,7 +240,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         # Create a new partial function with `logger` argument fixed. This allows us to pass a fixed `logger` argument
         # to the `get_active_cids_wrapper()` function when it is mapped to each AID element in `aid_list` via
         # `concurrent.futures.ThreadPoolExecutor.map()`
-        get_active_cids_wrapper_partial = partial(get_active_cids_wrapper, logger=self._logger)
+        get_active_cids_wrapper_partial = partial(get_active_cids, logger=self._logger)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
             # Map and apply partial function of `cids_for_aid_wrapper()` to every element in `aid_list` concurrently
