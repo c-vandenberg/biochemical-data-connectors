@@ -2,7 +2,7 @@ import time
 import requests
 from typing import Optional
 
-from src.biochemical_data_connectors.constants import RestApiEndpoints
+from biochemical_data_connectors.constants import RestApiEndpoints
 
 
 def pdb_to_uniprot_id_mapping(pdb_id: str) -> Optional[str]:
