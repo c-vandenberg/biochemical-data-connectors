@@ -9,10 +9,10 @@ from typing import List, Optional
 import pubchempy as pcp
 from chembl_webresource_client.new_client import new_client
 
-from src.biochemical_data_connectors.constants import RestApiEndpoints
-from src.biochemical_data_connectors.utils.iter_utils import batch_iterable
-from src.biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping
-from src.biochemical_data_connectors.utils.api.pubchem_api import (
+from biochemical_data_connectors.constants import RestApiEndpoints
+from biochemical_data_connectors.utils.iter_utils import batch_iterable
+from biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping
+from biochemical_data_connectors.utils.api.pubchem_api import (
     get_active_aids,
     get_active_cids,
     get_compounds_in_batches,

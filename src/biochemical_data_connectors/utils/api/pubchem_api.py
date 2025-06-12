@@ -4,8 +4,8 @@ from typing import List, Iterator, Optional
 
 import pubchempy as pcp
 
-from src.biochemical_data_connectors.constants import RestApiEndpoints
-from src.biochemical_data_connectors.utils.iter_utils import batch_iterable
+from biochemical_data_connectors.constants import RestApiEndpoints
+from biochemical_data_connectors.utils.iter_utils import batch_iterable
 
 
 def get_active_aids(target_gene_id: str, logger: Optional[logging.Logger] = None) -> List[str]:
