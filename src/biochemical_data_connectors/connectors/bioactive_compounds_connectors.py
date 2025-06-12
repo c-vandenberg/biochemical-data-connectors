@@ -4,7 +4,7 @@ import logging
 import concurrent.futures
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import List, Optional
+from typing import List, Any, Optional
 
 import pubchempy as pcp
 from chembl_webresource_client.new_client import new_client
@@ -50,7 +50,7 @@ class BaseBioactivesConnector(ABC):
         self._logger = logger if logger else logging.getLogger(__name__)
 
     @abstractmethod
-    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[str]:
+    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[Any]:
         """
         Retrieve a list of canonical SMILES for bioactive compounds for a given target.
 
@@ -196,7 +196,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
     ):
         super().__init__(bioactivity_measure, bioactivity_threshold, logger)
 
-    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[str]:
+    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[pcp.Compound]:
         """
         Retrieve canonical SMILES for compounds for a given target from PubChem.
         The target is provided as a UniProt accession (e.g. "P00533").
@@ -240,11 +240,11 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         # Create a new partial function with `logger` argument fixed. This allows us to pass a fixed `logger` argument
         # to the `get_active_cids_wrapper()` function when it is mapped to each AID element in `aid_list` via
         # `concurrent.futures.ThreadPoolExecutor.map()`
-        get_active_cids_wrapper_partial = partial(get_active_cids, logger=self._logger)
+        get_active_cids_partial = partial(get_active_cids, logger=self._logger)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
             # Map and apply partial function of `cids_for_aid_wrapper()` to every element in `aid_list` concurrently
-            results = list(executor.map(get_active_cids_wrapper_partial, aid_list))
+            results = list(executor.map(get_active_cids_partial, aid_list))
 
             for cids in results:
                 active_cids.update(cids)
@@ -263,17 +263,10 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         self._logger.info(f'PubChem Bioactive Compounds From CIDs Total API Query Time: '
                           f'{round(bioactive_compound_api_end - bioactive_compound_api_start)} seconds')
 
-        bioactive_smiles: List[str] = []
         if not self._bioactivity_threshold:
-            for compound in bioactive_compounds:
-                compound_smiles = compound.canonical_smiles
-                if not compound_smiles:
-                    continue
-
-                bioactive_smiles.append(compound_smiles)
-
-            return bioactive_smiles
+            return bioactive_compounds
         else:
+            filtered_bioactives: List[pcp.Compound] = []
             compound_potency_api_start: float = time.time()
 
             # Create a new partial function with `target_gene_id` and `logger` argument fixed. As before, this allows
@@ -299,21 +292,17 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
                 # Iterate over compounds in the batch alongside their potencies
                 for compound, potency in zip(compound_batch, potencies):
-                    compound_smiles = compound.canonical_smiles
-                    if not compound_smiles:
-                        continue
-
                     # Filter by potency if a potency is provided.
                     if potency is None or potency > self._bioactivity_threshold:
                         continue
 
-                    bioactive_smiles.append(compound_smiles)
+                    filtered_bioactives.append(compound)
 
             compound_potency_api_end: float = time.time()
             self._logger.info(f'PubChem Bioactive Compound Potencies Total API Query Time: '
                               f'{round(compound_potency_api_end - compound_potency_api_start)} seconds')
 
-            return bioactive_smiles
+            return filtered_bioactives
 
     def _get_bioactive_compound_potency(
         self,
