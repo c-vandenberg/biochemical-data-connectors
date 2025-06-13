@@ -10,6 +10,7 @@ import pubchempy as pcp
 from chembl_webresource_client.new_client import new_client
 
 from biochemical_data_connectors.constants import RestApiEndpoints
+from biochemical_data_connectors.models import BioactiveCompound
 from biochemical_data_connectors.utils.iter_utils import batch_iterable
 from biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping
 from biochemical_data_connectors.utils.api.pubchem_api import (
@@ -50,7 +51,7 @@ class BaseBioactivesConnector(ABC):
         self._logger = logger if logger else logging.getLogger(__name__)
 
     @abstractmethod
-    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[Any]:
+    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[BioactiveCompound]:
         """
         Retrieve a list of canonical SMILES for bioactive compounds for a given target.
 
@@ -92,7 +93,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         super().__init__(bioactivity_measure, bioactivity_threshold, logger)
         self._client = client if client else new_client
 
-    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[str]:
+    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[BioactiveCompound]:
         """
         Retrieve canonical SMILES for bioactive compounds for a given target from ChEMBL.
         The target is provided as a UniProt accession (e.g., "P00533").
@@ -119,8 +120,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             self._logger.error(f"No matching target found for UniProt ID {target_uniprot_id}")
             return []
 
-        target_data = target_results[0]
-        target_id = target_data['target_chembl_id']
+        target_id = target_results[0]['target_chembl_id']
 
         # 2) Build the base parameters for ChEMBL REST API.
         #    Filter activities based on the specified standard type (e.g. IC50)
@@ -139,15 +139,14 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         limit: int = 1000
         offset: int = 0
         chembl_activity_url: str = RestApiEndpoints.CHEMBL_ACTIVITY.url()
-        bioactive_smiles: List = []
+        bioactive_compounds: List[BioactiveCompound] = []
         chembl_start = time.time()
 
         while True:
             page_params = {
                 **params,
                 "limit": limit,
-                "offset": offset,
-                "fields": "canonical_smiles"
+                "offset": offset
             }
 
             chembl_activity_request = requests.get(
@@ -164,16 +163,38 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 break
 
             for record in records:
-                smiles = record.get('canonical_smiles')
-                if smiles:
-                    bioactive_smiles.append(smiles)
+                structures = record.get('molecule_structures')
+                properties = record.get('molecule_properties')
+
+                if not all([
+                    record.get('canonical_smiles'),
+                    record.get('standard_value'),
+                    structures,
+                    structures.get('standard_inchi_key')
+                ]):
+                    continue
+
+                compound_obj = BioactiveCompound(
+                    inchikey=structures['standard_inchi_key'],
+                    smiles=record['canonical_smiles'],
+                    activity_type=record['standard_type'],
+                    activity_value=float(record['standard_value']),
+                    source_db="ChEMBL",
+                    source_id=record['molecule_chembl_id'],
+                    iupac_name=structures.get('iupac_name') if structures.get('iupac_name') else None,
+                    molecular_formula=properties.get('full_molformula') if properties and properties.get(
+                        'full_molformula') else None,
+                    molecular_weight=float(properties.get('mw_freebase')) if properties and properties.get(
+                        'mw_freebase') else None
+                )
+                bioactive_compounds.append(compound_obj)
 
             offset += limit
 
         chembl_end = time.time()
-        self._logger.info(f'ChEMBL Total Query Time: {round(chembl_end - chembl_start)} seconds')
+        self._logger.info(f'ChEMBL total query time: {round(chembl_end - chembl_start)} seconds')
 
-        return bioactive_smiles
+        return bioactive_compounds
 
 
 class PubChemBioactivesConnector(BaseBioactivesConnector):
@@ -196,7 +217,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
     ):
         super().__init__(bioactivity_measure, bioactivity_threshold, logger)
 
-    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[pcp.Compound]:
+    def get_bioactive_compounds(self, target_uniprot_id: str) -> List[BioactiveCompound]:
         """
         Retrieve canonical SMILES for compounds for a given target from PubChem.
         The target is provided as a UniProt accession (e.g. "P00533").
@@ -206,18 +227,20 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         1. Maps the UniProt accession to an NCBI GeneID.
         2. Uses the GeneID to query PubChem’s BioAssay API for assay IDs (AIDs).
         3. For each assay, extracts the active compound IDs (CIDs).
-        4. Retrieves compound details (including canonical SMILES) for the aggregated CIDs.
-        5. Optionally filters compounds based on potency.
+        4. Retrieves full `pubchempy.Compound` compound details for all CIDs.
+        5. Creates a standardized BioactiveCompound object for each compound
+           that has a valid potency score.
+        6. Optionally filters the final list based on the potency threshold.
 
         Parameters
         ----------
         target_uniprot_id : str
-            The UniProt accession for the target.
+            The UniProt accession for the target (e.g., "P00533").
 
         Returns
         -------
-        List[str]
-            A list of canonical SMILES strings for compounds matching the target criteria.
+        List[BioactiveCompound]
+            A list of standardized BioactiveCompound objects
         """
         # 1) Map the UniProt accession to an NCBI GeneID.
         target_gene_id = self._lookup_target_gene_id(target_uniprot_id)
@@ -250,59 +273,80 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
                 active_cids.update(cids)
 
         cids_api_end: float = time.time()
-        self._logger.info(f'PubChem CID Total API Query Time: {round(cids_api_end - cids_api_start)} seconds')
+        self._logger.info(f'PubChem CID total API query time: {round(cids_api_end - cids_api_start)} seconds')
 
         if not active_cids:
             self._logger.error(f"No active compounds found for GeneID {target_gene_id}.")
             return []
 
-        # 4) Retrieve compound details using PubChemPy with the aggregated CIDs.
-        bioactive_compound_api_start: float = time.time()
-        bioactive_compounds = get_compounds_in_batches(cids=list(active_cids), logger=self._logger)
-        bioactive_compound_api_end: float = time.time()
-        self._logger.info(f'PubChem Bioactive Compounds From CIDs Total API Query Time: '
-                          f'{round(bioactive_compound_api_end - bioactive_compound_api_start)} seconds')
+        # 4) Retrieve full `pubchempy.Compound` objects for all CIDs.
+        pubchempy_compound_api_start: float = time.time()
+        pubchempy_compounds = get_compounds_in_batches(cids=list(active_cids), logger=self._logger)
+        pubchempy_compound_api_end: float = time.time()
+        self._logger.info(f'PubChem bioactive compounds from CIDs total API query time: '
+                          f'{round(pubchempy_compound_api_end - pubchempy_compound_api_start)} seconds')
 
-        if not self._bioactivity_threshold:
-            return bioactive_compounds
-        else:
-            filtered_bioactives: List[pcp.Compound] = []
-            compound_potency_api_start: float = time.time()
+        # 5) Fetch potencies for ALL retrieved compounds.
+        self._logger.info(f"Fetching potencies for {len(pubchempy_compounds)} compounds...")
+        potencies_api_start: float = time.time()
+        compound_potency_api_start: float = time.time()
+        cid_to_potency_map = {}
 
-            # Create a new partial function with `target_gene_id` and `logger` argument fixed. As before, this allows
-            # us to pass these fixed arguments to `self._get_bioactive_compound_potency()` when it is mapped to each
-            # compound element in the batched `bioactive_compounds` iterable via
-            # `concurrent.futures.ThreadPoolExecutor.map()`
-            get_bioactive_compound_potency_partial = partial(
-                self._get_bioactive_compound_potency,
-                target_gene_id=target_gene_id,
-                logger=self._logger
-            )
-            for compound_batch in batch_iterable(iterable=bioactive_compounds):
-                # Process the current `bioactive_compounds` batch concurrently using a thread pool
-                with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
-                    # Map and apply partial function of `self._get_bioactive_compound_potency()` to every element in
-                    # current `bioactive_compounds` batch concurrently
-                    potencies = list(
-                        executor.map(
-                            get_bioactive_compound_potency_partial,
-                            compound_batch
-                        )
+        # Create a new partial function with `target_gene_id` and `logger` argument fixed. As before, this allows
+        # us to pass these fixed arguments to `self._get_bioactive_compound_potency()` when it is mapped to each
+        # compound element in the batched `bioactive_compounds` iterable via
+        # `concurrent.futures.ThreadPoolExecutor.map()`
+        get_bioactive_compound_potency_partial = partial(
+            self._get_bioactive_compound_potency,
+            target_gene_id=target_gene_id,
+            logger=self._logger
+        )
+        for compound_batch in batch_iterable(iterable=pubchempy_compounds):
+            # Process the current `bioactive_compounds` batch concurrently using a thread pool
+            with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
+                # Map and apply partial function of `self._get_bioactive_compound_potency()` to every element in
+                # current `bioactive_compounds` batch concurrently
+                potencies = list(
+                    executor.map(
+                        get_bioactive_compound_potency_partial,
+                        compound_batch
                     )
-
-                # Iterate over compounds in the batch alongside their potencies
+                )
                 for compound, potency in zip(compound_batch, potencies):
-                    # Filter by potency if a potency is provided.
-                    if potency is None or potency > self._bioactivity_threshold:
-                        continue
+                    if potency is not None:
+                        cid_to_potency_map[compound.cid] = potency
 
-                    filtered_bioactives.append(compound)
+        potencies_api_end: float = time.time()
+        self._logger.info(f"PubChem bioactive compound potencies total API query time: "
+                          f"{round(potencies_api_start - potencies_api_end)} seconds\n'"
+                          f"Found potency data for {len(cid_to_potency_map)} compounds.")
 
-            compound_potency_api_end: float = time.time()
-            self._logger.info(f'PubChem Bioactive Compound Potencies Total API Query Time: '
-                              f'{round(compound_potency_api_end - compound_potency_api_start)} seconds')
+        # 6) Create complete list of `BioactiveCompound` objects
+        all_bioactives: List[BioactiveCompound] = []
+        for pubchempy_compound in pubchempy_compounds:
+            potency = cid_to_potency_map.get(pubchempy_compound.cid)
+
+            if potency is None:
+                self._logger.debug(f"Skipping compound CID {pubchempy_compound.cid} due to missing potency data.")
+                continue
+
+            compound_obj = self._create_bioactive_compound(pubchempy_compound, potency)
+            if compound_obj:
+                all_bioactives.append(compound_obj)
+
+        # 7) Filter final list of `BioactiveCompound` objects by potency if threshold is provided.
+        if self._bioactivity_threshold is not None:
+            self._logger.info(f"Filtering {len(all_bioactives)} compounds with threshold: "
+                              f"<= {self._bioactivity_threshold} nM")
+            filtered_bioactives: List[BioactiveCompound] = [
+                compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
+            ]
+            self._logger.info(f"Found {len(filtered_bioactives)} compounds after filtering.")
 
             return filtered_bioactives
+        else:
+            return all_bioactives
+
 
     def _get_bioactive_compound_potency(
         self,
@@ -310,11 +354,69 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         target_gene_id: str,
         logger: logging.Logger = None
     ) -> Optional[float]:
+        """
+        Wrapper method to call the `get_compound_potency` utility.
+
+        Parameters
+        ----------
+        compound : pcp.Compound
+            The `pubchempy.Compound` to process.
+        target_gene_id : str
+            The NCBI GeneID of the target protein.
+        logger : logging.Logger, optional
+            A logger instance.
+
+        Returns
+        -------
+        Optional[float]
+            The potency value in nM, or None if not found.
+        """
         return get_compound_potency(
             compound=compound,
             target_gene_id=target_gene_id,
             bioactivity_measure=self._bioactivity_measure,
             logger=logger
+        )
+
+    def _create_bioactive_compound(
+        self,
+        pubchempy_compound: pcp.Compound,
+        potency: float
+    ) -> Optional[BioactiveCompound]:
+        """
+        Helper to convert a `pubchempy.Compound` to a `BioactiveCompound`.
+
+        This method safely extracts attributes from the source object and uses
+        them to instantiate the standardized `BioactiveCompound` dataclass.
+
+        Parameters
+        ----------
+        pubchempy_compound : pcp.Compound
+            The source object from the `pubchempy` library.
+        potency : float
+            The pre-fetched potency value (in nM) for the compound.
+
+        Returns
+        -------
+        Optional[BioactiveCompound]
+            A populated `BioactiveCompound` object, or None if essential
+            information like InChIKey or SMILES is missing.
+        """
+        if not getattr(pubchempy_compound, 'inchikey', None) or not getattr(pubchempy_compound, 'canonical_smiles', None):
+            return None
+
+        return BioactiveCompound(
+            inchikey=pubchempy_compound.inchikey,
+            smiles=pubchempy_compound.canonical_smiles,
+            activity_type=self._bioactivity_measure,
+            activity_value=potency,
+            source_db="PubChem",
+            source_id=pubchempy_compound.cid,
+            iupac_name=getattr(pubchempy_compound, 'iupac_name', None),
+            molecular_formula=getattr(pubchempy_compound, 'molecular_formula', None),
+            molecular_weight=float(pubchempy_compound.molecular_weight) if getattr(pubchempy_compound, 'molecular_weight',
+                                                                             None) else None,
+            raw_data=pubchempy_compound
         )
 
     @staticmethod
