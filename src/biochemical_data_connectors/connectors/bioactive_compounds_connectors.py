@@ -167,25 +167,25 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 properties = record.get('molecule_properties')
 
                 if not all([
+                    record.get('molecule_chembl_id'),
                     record.get('canonical_smiles'),
-                    record.get('standard_value'),
-                    structures,
-                    structures.get('standard_inchi_key')
+                    record.get('standard_value')
                 ]):
                     continue
 
                 compound_obj = BioactiveCompound(
-                    inchikey=structures['standard_inchi_key'],
+                    source_db="ChEMBL",
+                    source_id=record['molecule_chembl_id'],
                     smiles=record['canonical_smiles'],
                     activity_type=record['standard_type'],
                     activity_value=float(record['standard_value']),
-                    source_db="ChEMBL",
-                    source_id=record['molecule_chembl_id'],
+                    source_inchikey=structures['standard_inchi_key'] if structures['standard_inchi_key'] else None,
                     iupac_name=structures.get('iupac_name') if structures.get('iupac_name') else None,
                     molecular_formula=properties.get('full_molformula') if properties and properties.get(
                         'full_molformula') else None,
                     molecular_weight=float(properties.get('mw_freebase')) if properties and properties.get(
-                        'mw_freebase') else None
+                        'mw_freebase') else None,
+                    raw_data=record
                 )
                 bioactive_compounds.append(compound_obj)
 
@@ -402,16 +402,16 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             A populated `BioactiveCompound` object, or None if essential
             information like InChIKey or SMILES is missing.
         """
-        if not getattr(pubchempy_compound, 'inchikey', None) or not getattr(pubchempy_compound, 'canonical_smiles', None):
+        if not getattr(pubchempy_compound, 'canonical_smiles', None):
             return None
 
         return BioactiveCompound(
-            inchikey=pubchempy_compound.inchikey,
+            source_db="PubChem",
+            source_id=pubchempy_compound.cid,
             smiles=pubchempy_compound.canonical_smiles,
             activity_type=self._bioactivity_measure,
             activity_value=potency,
-            source_db="PubChem",
-            source_id=pubchempy_compound.cid,
+            source_inchikey=pubchempy_compound.inchikey if pubchempy_compound.inchikey else None,
             iupac_name=getattr(pubchempy_compound, 'iupac_name', None),
             molecular_formula=getattr(pubchempy_compound, 'molecular_formula', None),
             molecular_weight=float(pubchempy_compound.molecular_weight) if getattr(pubchempy_compound, 'molecular_weight',

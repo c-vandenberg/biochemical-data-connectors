@@ -9,19 +9,19 @@ class BioactiveCompound:
 
     Attributes
     ----------
-    inchikey : str
-        The standard 27-character InChIKey for the compound's structure.
+    source_db : str
+        The name of the database where the data was sourced, e.g., 'ChEMBL'.
+    source_id : str
+        The compound's primary identifier from the source database, e.g.,
+        a ChEMBL ID or a PubChem CID.
+    source_inchikey : str
+        The standard 27-character InChIKey for the compound's structure from the source database.
     smiles : str
         The canonical SMILES string representing the molecule.
     activity_type : str
         The type of bioactivity measurement, e.g., 'Kd', 'IC50'.
     activity_value : float
         The numeric value of the bioactivity, typically in nM.
-    source_db : str
-        The name of the database where the data was sourced, e.g., 'ChEMBL'.
-    source_id : str
-        The compound's primary identifier from the source database, e.g.,
-        a ChEMBL ID or a PubChem CID.
     iupac_name : Optional[str]
         The IUPAC name of the compound.
     molecular_formula : Optional[str]
@@ -33,12 +33,12 @@ class BioactiveCompound:
         (e.g., a `pubchempy.Compound` object) for advanced use cases.
         The string representation of this field is hidden for clarity.
     """
-    inchikey: str
+    source_db: str
+    source_id: str
     smiles: str
     activity_type: str
     activity_value: float
-    source_db: str
-    source_id: str
+    source_inchikey: Optional[str] = None
     iupac_name: Optional[str] = None
     molecular_formula: Optional[str] = None
     molecular_weight: Optional[float] = None

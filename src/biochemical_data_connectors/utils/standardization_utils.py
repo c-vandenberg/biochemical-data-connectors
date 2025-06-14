@@ -26,7 +26,7 @@ class MoleculeStandardizer:
         The workflow includes:
         1. Desalting the molecule to keep the parent structure.
         2. Standardizing the protonation state to a specific pH using `dimorphite-dl`.
-        3. Generating a canonical SMILES string and a standard InChIKey if one is not provided.
+        3. Generating a canonical SMILES string and an InChIKey of the standardized molecule.
 
         Parameters
         ----------
@@ -35,14 +35,14 @@ class MoleculeStandardizer:
         ph : float, optional
             The pH at which to standardize the protonation state. Default is 7.4.
         inchi_key : str, optional
-            A condensed, 27-character representation of a full InChi identifier.
+            A condensed, 27-character representation of a full InChI identifier.
         logger : logging.Logger, optional
             A logger for logging potential errors.
 
         Returns
         -------
         Optional[dict]
-            A dictionary containing the 'mol', 'smiles', and 'inchi_key' of the
+            A dictionary containing the 'smiles', and 'inchi_key' of the
             standardized molecule, or None if the input SMILES is invalid.
         """
         try:
@@ -61,11 +61,8 @@ class MoleculeStandardizer:
                 parent_smiles, ph_min=ph, ph_max=ph, max_variants=1
             )
 
-            if not protonated_smiles_list:
-                # If dimorphite returns nothing, use the desalted parent
-                final_smiles = parent_smiles
-            else:
-                final_smiles = protonated_smiles_list[0]
+            # If dimorphite returns nothing, use the desalted parent
+            final_smiles = protonated_smiles_list[0] if protonated_smiles_list else parent_smiles
 
             # 4. Create the final, fully standardized RDKit Mol object
             final_mol = Chem.MolFromSmiles(final_smiles)
@@ -73,16 +70,12 @@ class MoleculeStandardizer:
                 raise ValueError("Failed to create molecule after standardization")
 
             # 5. Generate final canonical representations
-            final_canonical_smiles = Chem.MolToSmiles(final_mol, canonical=True, isomericSmiles=True)
-            if inchi_key is None:
-                final_inchi_key = Chem.MolToInchiKey(final_mol)
-            else:
-                final_inchi_key = inchi_key
+            canonical_smiles = Chem.MolToSmiles(final_mol, canonical=True, isomericSmiles=True)
+            canonical_inchi_key = Chem.MolToInchiKey(final_mol)
 
             return {
-                "mol": final_mol,
-                "smiles": final_canonical_smiles,
-                "inchi_key": final_inchi_key
+                "smiles": canonical_smiles,
+                "inchi_key": canonical_inchi_key
             }
 
         except Exception as e:
