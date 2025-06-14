@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "biochemical-data-connectors"
-version = "0.1.6"
+version = "0.1.7"
 description = "A Python package to extract chemical, biochemical, and bioactivity data from public databases like ORD, ChEMBL and PubChem."
 readme = "README.md"
 license = { text = "MIT License" }
