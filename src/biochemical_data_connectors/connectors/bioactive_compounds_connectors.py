@@ -259,7 +259,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         # Create a new partial function with `logger` argument fixed. This allows us to pass a fixed `logger` argument
         # to the `get_active_cids_wrapper()` function when it is mapped to each AID element in `aid_list` via
         # `concurrent.futures.ThreadPoolExecutor.map()`
-        get_active_cids_partial = partial(self._api_client.get_active_cids, logger=self._logger)
+        get_active_cids_partial = partial(self._api_client.get_active_cids)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
             # Map and apply partial function of `cids_for_aid_wrapper()` to every element in `aid_list` concurrently
@@ -294,8 +294,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         get_compound_bioassay_data_partial = partial(
             self._api_client.get_compound_bioassay_data,
             target_gene_id=target_gene_id,
-            bioactivity_measures=self._bioactivity_measures,
-            logger=self._logger
+            bioactivity_measures=self._bioactivity_measures
         )
         for compound_batch in batch_iterable(iterable=pubchempy_compounds):
             # Process the current `bioactive_compounds` batch concurrently using a thread pool
