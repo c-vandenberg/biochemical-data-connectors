@@ -1,78 +1,290 @@
+import time
+import statistics
 import requests
 import logging
-from typing import List, Iterator, Optional
+from requests.adapters import HTTPAdapter, Retry
+from typing import List, Dict, Any, Optional
 
 import pubchempy as pcp
 
 from biochemical_data_connectors.constants import RestApiEndpoints
 from biochemical_data_connectors.utils.iter_utils import batch_iterable
 
+CONVERSION_FACTORS_TO_NM = {
+    "NM": 1.0,
+    "NANOMOLAR": 1.0,
+    "UM": 1000.0,
+    "MICROMOLAR": 1000.0,
+    "MM": 1_000_000.0,
+    "MILLIMOLAR": 1_000_000.0,
+    "PM": 0.001,
+    "PICOMOLAR": 0.001
+}
 
-def get_active_aids(target_gene_id: str, logger: Optional[logging.Logger] = None) -> List[str]:
+
+class PubChemAPIClient:
     """
-    Query PubChem's BioAssay database to get all assay IDs (AIDs) associated
-    with a specific target, identified by its NCBI GeneID.
+    A client for interacting with the PubChem API.
 
-    Parameters
+    This class encapsulates all direct interactions with the PubChem PUG REST
+    API. A persistent `requests.Session` instance with a retry strategy handles
+    transient network errors and API rate-limiting.
+
+    Attributes
     ----------
-    target_gene_id : str
-        The NCBI GeneID of the target protein.
-    logger : logging.Logger, optional
-        A logger instance for logging potential errors. If None, errors will
-        be printed to standard output. Default is None.
-
-    Returns
-    -------
-    List[str]
-        A list of assay ID strings, or an empty list if an error occurs or
-        no AIDs are found.
+    session : requests.Session
+        A configured requests session with automatic retries for server errors.
     """
-    assay_id_url = RestApiEndpoints.PUBCHEM_ASSAYS_IDS_FROM_GENE_ID.url(
-        target_gene_id=target_gene_id
-    )
-    try:
-        response = requests.get(assay_id_url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        self._logger = logger if logger else logging.getLogger(__name__)
+        self.session = self._create_session()
 
-        return data.get("IdentifierList", {}).get("AID", [])
-    except Exception as e:
-        message = f"Error retrieving assay IDs for GeneID {target_gene_id}: {e}"
-        logger.error(message) if logger else print(message)
+    @staticmethod
+    def _create_session() -> requests.Session:
+        """
+        Create a `requests.Session` instance with a robust retry strategy.
 
-        return []
+        The retry strategy automatically handles transient network issues and
+        common server-side errors (like 5xx status codes), making the client
+        more resilient.
+
+        Returns
+        -------
+        requests.Session
+            A configured session object with mounted retry logic.
+        """
+        session = requests.Session()
+        retries = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504]
+        )
+        # Mount the retry strategy to the session for all HTTPS requests.
+        session.mount("https://", HTTPAdapter(max_retries=retries))
+
+        return session
+
+    def get_active_aids(self, target_gene_id: str) -> List[str]:
+        """
+        Query PubChem's BioAssay database to get all assay IDs (AIDs) associated
+        with a specific target, identified by its NCBI GeneID.
+
+        Parameters
+        ----------
+        target_gene_id : str
+            The NCBI GeneID of the target protein.
+
+        Returns
+        -------
+        List[str]
+            A list of assay ID strings, or an empty list if an error occurs.
+        """
+        # 1) Throttle the request to be polite to the API server.
+        time.sleep(0.1)
+
+        # 2) Construct the API URL for finding assay IDs from a GeneID.
+        assay_id_url = RestApiEndpoints.PUBCHEM_ASSAYS_IDS_FROM_GENE_ID.url(
+            target_gene_id=target_gene_id
+        )
+        try:
+            # 3) Make the API call using the persistent session and parse the JSON to extract the list of AIDs.
+            response = self.session.get(assay_id_url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            return data.get("IdentifierList", {}).get("AID", [])
+        except requests.exceptions.RequestException as e:
+            self._logger.error(f"API error retrieving AIDs for GeneID {target_gene_id}: {e}")
+
+            return []
+
+    def get_active_cids(self, aid: str) -> List[int]:
+        """
+        Query a PubChem assay to get the Compound IDs (CIDs) of all active compounds.
+
+        Parameters
+        ----------
+        aid : str
+            The PubChem Assay ID (AID) to query.
+
+        Returns
+        -------
+        List[int]
+            A list of integer CIDs for active compounds, or an empty list if an error
+            occurs.
+        """
+        # 1) Throttle the request and construct the API URL for finding active CIDs from an Assay ID.
+        time.sleep(0.1)
+        compound_id_url = RestApiEndpoints.PUBCHEM_COMPOUND_ID_FROM_ASSAY_ID.url(aid=aid)
+        try:
+            # 2) Make the API call using the persistent session and parse the nested JSON to extract the list of CIDs.
+            response = self.session.get(compound_id_url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            info_list = data.get("InformationList", {}).get("Information", [])
+            if info_list:
+                return info_list[0].get("CID", [])
+        except requests.exceptions.RequestException as e:
+            self._logger.error(f"API error processing assay {aid}: {e}")
+
+            return []
+
+    def get_compound_bioassay_data(
+        self,
+        compound: pcp.Compound,
+        target_gene_id: str,
+        bioactivity_measures: List[str]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a potency value (e.g., Kd in nM) for a compound by querying the
+        PubChem bioassay endpoint.
+
+        This function queries the PubChem BioAssay summary for a given compound's
+        CID. It finds all activity values matching a prioritized list of measures,
+        selects the highest-priority measure found, calculates statistics on its
+        values, and returns the results.
+
+        If multiple values are found for highest-priority measure the lowest
+        (most potent) value is returned.
 
 
-def get_active_cids(aid: str, logger: Optional[logging.Logger] = None) -> List[int]:
-    """
-    Query a PubChem assay by its assay ID to get the CIDs of all active compounds.
+        Parameters
+        ----------
+        compound : pcp.Compound
+            A `pubchempy.Compound` object for which to retrieve potency.
+        target_gene_id : str
+            The NCBI GeneID of the target protein, used to filter bioassays.
+        bioactivity_measures : str
+            A prioritized list of activity types to search for (e.g., ['Kd', 'Ki']).
+            The search is case-insensitive.
 
-    Parameters
-    ----------
-    aid : str
-        The PubChem Assay ID (AID) to query.
-    logger : logging.Logger, optional
-        A logger instance for logging potential errors. If None, errors will
-        be printed to standard output. Default is None.
+        Returns
+        -------
+        Optional[Dict[str, Any]]
+            A dictionary of potency statistics, or None if no matching activity
+            data is found or an error occurs. The dictionary contains the following
+            keys:
+                - 'activity_type'
+                - 'best_value'
+                - 'n_measurements'
+                - 'best_value'
+                - 'mean_value'
+                - 'median_value'
+                - 'std_dev_value'
 
-    Returns
-    -------
-    List[int]
-        A list of integer Compound IDs (CIDs) for active compounds, or an
-        empty list if an error occurs.
-    """
-    compound_id_url = RestApiEndpoints.PUBCHEM_COMPOUND_ID_FROM_ASSAY_ID.url(aid=aid)
-    try:
-        response = requests.get(compound_id_url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        Notes
+        -----
+        - All returned activity values and statistics are standardized to the
+          nanomolar (nM) scale for consistency.
+        - The function robustly handles multiple common concentration units from the
+          source data, including picomolar (pM), nanomolar (nM), and micromolar (µM).
+        - It first attempts to find an explicit 'Activity Unit' column in the API
+          response. If not found, it falls back to assuming a column named
+          'Activity Value [uM]' contains micromolar values.
+        - Activity data with unrecognized or unsupported units (e.g., '%', 'ppm')
+          are logged and gracefully skipped.
+        """
+        # 1) Throttle the request and build the API URL for the compound's assay summary.
+        time.sleep(0.1)
+        cid = compound.cid
+        assay_summary_url = RestApiEndpoints.PUBCHEM_ASSAY_SUMMARY_FROM_CID.url(cid=cid)
+        try:
+            # 2) Make the API call and perform initial validation on the JSON response.
+            response = self.session.get(assay_summary_url, timeout=10)
+            response.raise_for_status()
+            response_json = response.json()
 
-        return data.get("InformationList", {}).get("Information", [])[0].get("CID", [])
-    except Exception as e:
-        message = f"Error processing assay {aid}: {e}"
-        logger.error(message) if logger else print(message)
+            response_table = response_json.get('Table')
+            if not response_table:
+                return None
 
-        return []
+            response_columns = response_table.get('Columns').get('Column', [])
+            response_rows = response_table.get('Row')
+            if not response_columns or not response_rows:
+                return None
+
+            # 3) Defensively find the column indices for the data that needs to be extracted.
+            try:
+                target_gene_idx = response_columns.index('Target GeneID')
+                activity_name_idx = response_columns.index('Activity Name')
+                activity_value_idx = None
+                activity_unit_idx = None
+                unit_is_explicit = False
+
+                # Prioritize explicit unit columns, but fallback to assuming µM from the header.
+                if 'Activity Unit' in response_columns and 'Activity Value' in response_columns:
+                    activity_value_idx = response_columns.index('Activity Value')
+                    activity_unit_idx = response_columns.index('Activity Unit')
+                    unit_is_explicit = True
+                elif 'Activity Value [uM]' in response_columns:
+                    activity_value_idx = response_columns.index('Activity Value [uM]')
+                    activity_unit_idx = -1
+                else:
+                    self._logger.error(f"Could not find a valid activity value column in CID {cid} bioassay data")
+            except ValueError as e:
+                self._logger.error(f'Required column not found in CID {cid} bioassay data: {e}')
+                return None
+
+            grouped_activities = {measure.upper(): [] for measure in bioactivity_measures}
+
+            # 4) Iterate through all rows in the bioassay table to find and parse relevant data.
+            for row in response_rows:
+                row_cell = row.get('Cell', [])
+
+                if not activity_value_idx or not activity_unit_idx:
+                    continue
+
+                if not row_cell or len(row_cell) <= max(target_gene_idx, activity_name_idx, activity_value_idx):
+                    continue
+
+                row_target_gene = row_cell[target_gene_idx]
+                row_activity_name_upper = row_cell[activity_name_idx].strip().upper()
+
+                if not (str(row_target_gene).strip() == str(
+                        target_gene_id) and row_activity_name_upper in grouped_activities.keys()):
+                    continue
+
+                # 5) For each valid row, check the activity unit and convert the value to nM.
+                try:
+                    value = float(row_cell[activity_value_idx])
+                    unit_str = str(row_cell[activity_unit_idx]).upper() if unit_is_explicit else "UM"
+
+                    conversion_factor = CONVERSION_FACTORS_TO_NM.get(unit_str)
+                    if conversion_factor:
+                        value_nm = value * conversion_factor
+                        grouped_activities[row_activity_name_upper].append(value_nm)
+                    else:
+                        self._logger.debug(f"Skipping unsupported unit '{unit_str}' for CID {cid}")
+                except (ValueError, TypeError):
+                    continue
+
+            # 6) Find the highest-priority activity type that has data.
+            final_measure_type = None
+            final_values = []
+            for measure in bioactivity_measures:
+                if grouped_activities[measure.upper()]:
+                    final_measure_type = measure.upper()
+                    final_values = grouped_activities[final_measure_type]
+                    break  # Stop at the first (highest-priority) measure found
+
+            if not final_values:
+                return None
+
+            # 7) Calculate statistics on the final list of values.
+            count = len(final_values)
+            return {
+                "activity_type": final_measure_type,
+                "best_value": min(final_values),
+                "n_measurements": count,
+                "mean_value": statistics.mean(final_values) if count > 0 else None,
+                "median_value": statistics.median(final_values) if count > 0 else None,
+                "std_dev_value": statistics.stdev(final_values) if count > 1 else 0.0,
+            }
+
+        except requests.exceptions.RequestException as e:
+            self._logger.error(f"API error retrieving bioassay data for {cid}: {e}")
+
+            return None
 
 
 def get_compounds_in_batches(
@@ -109,110 +321,20 @@ def get_compounds_in_batches(
     and that batch is skipped, allowing the function to continue with the
     remaining batches.
     """
+    # 1) Iterate through the provided CIDs in batches using the utility function.
     compounds = []
     for cid_batch in batch_iterable(cids, batch_size):
         try:
+            # 2) For each batch, call the pubchempy library to retrieve compound data.
+            #    pubchempy handles its own connection and retry logic.
             batch_compounds = pcp.get_compounds(cid_batch, 'cid')
             compounds.extend(batch_compounds)
         except Exception as e:
+            # 3) Handle any errors during the batch fetch to ensure the process can continue.
+            message = f"Error retrieving compounds for batch {cid_batch}: {e}"
             if logger:
-                logger.error(f"Error retrieving compounds for batch {cid_batch}: {e}")
+                logger.error(message)
             else:
-                print(f"Error retrieving compounds for batch {cid_batch}: {e}")
+                print(message)
 
     return compounds
-
-
-def get_compound_potency(
-    compound: pcp.Compound,
-    target_gene_id: str,
-    bioactivity_measure: str,
-    logger: logging.Logger = None
-) -> Optional[float]:
-    """
-    Retrieve a potency value (e.g., Kd in nM) for a compound by querying the
-    PubChem bioassay endpoint.
-
-    This function queries the PubChem BioAssay summary for a given compound's
-    CID. It parses the results to find activity data that matches the specified
-    `target_gene_id` and `bioactivity_measure`. If multiple values are found,
-    the lowest (most potent) value is returned.
-
-    Parameters
-    ----------
-    compound : pcp.Compound
-        A `pubchempy.Compound` object for which to retrieve potency.
-    target_gene_id : str
-        The NCBI GeneID of the target protein, used to filter bioassays.
-    bioactivity_measure : str
-        The type of activity to search for (e.g., 'Kd', 'IC50'). The match
-        is case-insensitive.
-    logger : logging.Logger, optional
-        A logger instance for logging potential errors during the process.
-        If None, errors will not be logged. Default is None.
-
-    Returns
-    -------
-    Optional[float]
-        The lowest potency value found (in nM), or `None` if no matching
-        activity data is found or if an error occurs.
-
-    Notes
-    -----
-    - The function expects activity values in micromolar (µM) from the PubChem
-      API and converts them to nanomolar (nM) before returning.
-    """
-    cid = compound.cid
-    assay_summary_url =  RestApiEndpoints.PUBCHEM_ASSAY_SUMMARY_FROM_CID.url(cid=cid)
-    try:
-        response = requests.get(assay_summary_url, timeout=10)
-        response.raise_for_status()
-        response_json = response.json()
-
-        response_table = response_json.get('Table')
-        if not response_table:
-            return
-
-        response_columns = response_table.get('Columns')
-        response_rows = response_table.get('Row')
-        if not response_columns or not response_rows:
-            return None
-
-        try:
-            columns_list = response_columns.get('Column', [])
-            target_gene_idx = columns_list.index('Target GeneID')
-            activity_name_idx = columns_list.index('Activity Name')
-            activity_value_idx = columns_list.index('Activity Value [uM]')
-        except ValueError as e:
-            logger.error(f'Column not found in bioassay data: {e}')
-            return None
-
-        ic50_values = []
-        for row in response_rows:
-            row_cell = row.get('Cell', [])
-            if not row_cell:
-                continue
-
-            row_target_gene = row_cell[target_gene_idx]
-            row_activity_name = row_cell[activity_name_idx]
-            if str(row_target_gene).strip() != str(target_gene_id).strip():
-                continue
-            if row_activity_name.strip().upper() != bioactivity_measure:
-                continue
-
-            # Extract the activity value (in µM) and convert it to nM
-            try:
-                value_um = float(row_cell[activity_value_idx])
-                value_nm = value_um * 1000.0
-                ic50_values.append(value_nm)
-            except (ValueError, TypeError):
-                continue
-
-        if ic50_values:
-            return min(ic50_values)
-
-    except Exception as e:
-        logger.error(f'Error retrieving potency for CID {cid}: {e}')
-        return None
-
-    return None
