@@ -67,12 +67,15 @@ biochemical-data-connectors/
 │   └── biochemical_data_connectors/
 │       ├── __init__.py
 │       ├── constants.py
+│       ├── models.py
 │       ├── connectors/
 │       │   ├── __init__.py
 │       │   ├── bioactive_compounds_connectors.py
 │       │   └── ord_connectors.py
 │       └── utils/
 │           ├── __init__.py
+│           ├── iter_utils.py
+│           ├── standardization_utils.py
 │           └── api/
 │               ├── __init__.py
 │               ├── mappings.py

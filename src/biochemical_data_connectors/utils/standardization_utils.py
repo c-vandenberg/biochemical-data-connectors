@@ -17,7 +17,6 @@ class MoleculeStandardizer:
         self,
         smiles: str,
         ph: float = 7.4,
-        inchi_key: Optional[str] = None,
         logger: Optional[logging.Logger] = None
     ) -> Optional[dict]:
         """
@@ -34,8 +33,6 @@ class MoleculeStandardizer:
             The input SMILES string to be standardized.
         ph : float, optional
             The pH at which to standardize the protonation state. Default is 7.4.
-        inchi_key : str, optional
-            A condensed, 27-character representation of a full InChI identifier.
         logger : logging.Logger, optional
             A logger for logging potential errors.
 
