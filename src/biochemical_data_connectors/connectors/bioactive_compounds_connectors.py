@@ -4,7 +4,7 @@ import logging
 import concurrent.futures
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import List, Any, Optional
+from typing import List, Dict, Optional, Any
 
 import pubchempy as pcp
 from chembl_webresource_client.new_client import new_client
@@ -17,7 +17,7 @@ from biochemical_data_connectors.utils.api.pubchem_api import (
     get_active_aids,
     get_active_cids,
     get_compounds_in_batches,
-    get_compound_potency
+    get_compound_bioassay_data
 )
 
 
@@ -42,11 +42,11 @@ class BaseBioactivesConnector(ABC):
     """
     def __init__(
         self,
-        bioactivity_measure: str = 'Kd',
+        bioactivity_measures: List[str],
         bioactivity_threshold: Optional[float] = None,
         logger: Optional[logging.Logger] = None
     ):
-        self._bioactivity_measure = bioactivity_measure
+        self._bioactivity_measures = bioactivity_measures
         self._bioactivity_threshold = bioactivity_threshold
         self._logger = logger if logger else logging.getLogger(__name__)
 
@@ -85,12 +85,12 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
     """
     def __init__(
         self,
+        bioactivity_measures: List[str],
         client = None,
-        bioactivity_measure: str = 'Kd',
         bioactivity_threshold: Optional[float] = None, # In nM (e.g. 1000 nM threshold to filter for compounds with Kd <= 1 µM)
         logger: Optional[logging.Logger] = None
     ):
-        super().__init__(bioactivity_measure, bioactivity_threshold, logger)
+        super().__init__(bioactivity_measures, bioactivity_threshold, logger)
         self._client = client if client else new_client
 
     def get_bioactive_compounds(self, target_uniprot_id: str) -> List[BioactiveCompound]:
@@ -126,7 +126,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         #    Filter activities based on the specified standard type (e.g. IC50)
         params = {
             "target_chembl_id": target_id,
-            "standard_type": self._bioactivity_measure,
+            "standard_type": self._bioactivity_measures,
             "standard_units": "nM"
         }
 
@@ -211,11 +211,11 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
     """
     def __init__(
         self,
-        bioactivity_measure: str = 'Kd',
+        bioactivity_measures: List[str],
         bioactivity_threshold: Optional[float] = None, # In nM (e.g. 1000 nM threshold to filter for compounds with Kd <= 1 µM)
         logger: Optional[logging.Logger] = None
     ):
-        super().__init__(bioactivity_measure, bioactivity_threshold, logger)
+        super().__init__(bioactivity_measures, bioactivity_threshold, logger)
 
     def get_bioactive_compounds(self, target_uniprot_id: str) -> List[BioactiveCompound]:
         """
@@ -293,44 +293,48 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         cid_to_potency_map = {}
 
         # Create a new partial function with `target_gene_id` and `logger` argument fixed. As before, this allows
-        # us to pass these fixed arguments to `self._get_bioactive_compound_potency()` when it is mapped to each
+        # us to pass these fixed arguments to `self._get_compound_bioassay_data()` when it is mapped to each
         # compound element in the batched `bioactive_compounds` iterable via
         # `concurrent.futures.ThreadPoolExecutor.map()`
-        get_bioactive_compound_potency_partial = partial(
-            self._get_bioactive_compound_potency,
+        get_compound_bioassay_data_partial = partial(
+            self._get_compound_bioassay_data,
             target_gene_id=target_gene_id,
+            bioactivity_measures=self._bioactivity_measures,
             logger=self._logger
         )
         for compound_batch in batch_iterable(iterable=pubchempy_compounds):
             # Process the current `bioactive_compounds` batch concurrently using a thread pool
-            with concurrent.futures.ThreadPoolExecutor(max_workers=9) as executor:
-                # Map and apply partial function of `self._get_bioactive_compound_potency()` to every element in
+            with (concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor):
+                # Map and apply partial function of `self._get_compound_bioassay_data()` to every element in
                 # current `bioactive_compounds` batch concurrently
-                potencies = list(
+                batch_bioassay_data = list(
                     executor.map(
-                        get_bioactive_compound_potency_partial,
+                        get_compound_bioassay_data_partial,
                         compound_batch
                     )
                 )
-                for compound, potency in zip(compound_batch, potencies):
-                    if potency is not None:
-                        cid_to_potency_map[compound.cid] = potency
+                for compound, bioassay_data in zip(compound_batch, batch_bioassay_data):
+                    if bioassay_data:
+                        cid_to_potency_map[compound.cid] = bioassay_data
 
         potencies_api_end: float = time.time()
         self._logger.info(f"PubChem bioactive compound potencies total API query time: "
-                          f"{round(potencies_api_start - potencies_api_end)} seconds\n'"
+                          f"{round(potencies_api_end - potencies_api_start)} seconds\n"
                           f"Found potency data for {len(cid_to_potency_map)} compounds.")
 
         # 6) Create complete list of `BioactiveCompound` objects
         all_bioactives: List[BioactiveCompound] = []
         for pubchempy_compound in pubchempy_compounds:
-            potency = cid_to_potency_map.get(pubchempy_compound.cid)
+            compound_bioassay_data: Dict = cid_to_potency_map.get(pubchempy_compound.cid)
 
-            if potency is None:
+            if compound_bioassay_data is None:
                 self._logger.debug(f"Skipping compound CID {pubchempy_compound.cid} due to missing potency data.")
                 continue
 
-            compound_obj = self._create_bioactive_compound(pubchempy_compound, potency)
+            compound_obj = self._create_bioactive_compound(
+                pubchempy_compound=pubchempy_compound,
+                bioassay_data=compound_bioassay_data
+            )
             if compound_obj:
                 all_bioactives.append(compound_obj)
 
@@ -347,11 +351,11 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         else:
             return all_bioactives
 
-
-    def _get_bioactive_compound_potency(
-        self,
+    @staticmethod
+    def _get_compound_bioassay_data(
         compound: pcp.Compound,
         target_gene_id: str,
+        bioactivity_measures: List[str],
         logger: logging.Logger = None
     ) -> Optional[float]:
         """
@@ -371,17 +375,18 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         Optional[float]
             The potency value in nM, or None if not found.
         """
-        return get_compound_potency(
+        return get_compound_bioassay_data(
             compound=compound,
             target_gene_id=target_gene_id,
-            bioactivity_measure=self._bioactivity_measure,
+            bioactivity_measures=bioactivity_measures,
             logger=logger
         )
 
+
+    @staticmethod
     def _create_bioactive_compound(
-        self,
         pubchempy_compound: pcp.Compound,
-        potency: float
+        bioassay_data: Dict[str, Any]
     ) -> Optional[BioactiveCompound]:
         """
         Helper to convert a `pubchempy.Compound` to a `BioactiveCompound`.
@@ -406,16 +411,19 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             return None
 
         return BioactiveCompound(
-            source_db="PubChem",
+            source_db='PubChem',
             source_id=pubchempy_compound.cid,
             smiles=pubchempy_compound.canonical_smiles,
-            activity_type=self._bioactivity_measure,
-            activity_value=potency,
+            activity_type=bioassay_data['activity_type'],
+            activity_value=bioassay_data['best_value'],
             source_inchikey=pubchempy_compound.inchikey if pubchempy_compound.inchikey else None,
             iupac_name=getattr(pubchempy_compound, 'iupac_name', None),
             molecular_formula=getattr(pubchempy_compound, 'molecular_formula', None),
-            molecular_weight=float(pubchempy_compound.molecular_weight) if getattr(pubchempy_compound, 'molecular_weight',
-                                                                             None) else None,
+            molecular_weight=float(pubchempy_compound.molecular_weight) if getattr(pubchempy_compound,
+                                                                                   'molecular_weight', None) else None,
+            n_measurements=bioassay_data["n_measurements"],
+            mean_activity_value=bioassay_data["mean_value"],
+            median_activity_value=bioassay_data["median_value"],
             raw_data=pubchempy_compound
         )
 

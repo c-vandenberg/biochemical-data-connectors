@@ -1,6 +1,8 @@
+import statistics
 import requests
+import time
 import logging
-from typing import List, Iterator, Optional
+from typing import List, Dict, Any, Optional
 
 import pubchempy as pcp
 
@@ -123,12 +125,14 @@ def get_compounds_in_batches(
     return compounds
 
 
-def get_compound_potency(
+def get_compound_bioassay_data(
     compound: pcp.Compound,
     target_gene_id: str,
-    bioactivity_measure: str,
-    logger: logging.Logger = None
-) -> Optional[float]:
+    bioactivity_measures: List[str],
+    logger: logging.Logger = None,
+    max_retries: int = 3,
+    delay: float = 1.0
+) -> Optional[Dict[str, Any]]:
     """
     Retrieve a potency value (e.g., Kd in nM) for a compound by querying the
     PubChem bioassay endpoint.
@@ -144,7 +148,7 @@ def get_compound_potency(
         A `pubchempy.Compound` object for which to retrieve potency.
     target_gene_id : str
         The NCBI GeneID of the target protein, used to filter bioassays.
-    bioactivity_measure : str
+    bioactivity_measures : str
         The type of activity to search for (e.g., 'Kd', 'IC50'). The match
         is case-insensitive.
     logger : logging.Logger, optional
@@ -164,55 +168,82 @@ def get_compound_potency(
     """
     cid = compound.cid
     assay_summary_url =  RestApiEndpoints.PUBCHEM_ASSAY_SUMMARY_FROM_CID.url(cid=cid)
-    try:
-        response = requests.get(assay_summary_url, timeout=10)
-        response.raise_for_status()
-        response_json = response.json()
-
-        response_table = response_json.get('Table')
-        if not response_table:
-            return
-
-        response_columns = response_table.get('Columns')
-        response_rows = response_table.get('Row')
-        if not response_columns or not response_rows:
-            return None
-
+    for attempt in range(max_retries):
         try:
-            columns_list = response_columns.get('Column', [])
-            target_gene_idx = columns_list.index('Target GeneID')
-            activity_name_idx = columns_list.index('Activity Name')
-            activity_value_idx = columns_list.index('Activity Value [uM]')
-        except ValueError as e:
-            logger.error(f'Column not found in bioassay data: {e}')
-            return None
+            response = requests.get(assay_summary_url, timeout=10)
+            response.raise_for_status()
+            response_json = response.json()
 
-        ic50_values = []
-        for row in response_rows:
-            row_cell = row.get('Cell', [])
-            if not row_cell:
-                continue
+            response_table = response_json.get('Table')
+            if not response_table:
+                return
 
-            row_target_gene = row_cell[target_gene_idx]
-            row_activity_name = row_cell[activity_name_idx]
-            if str(row_target_gene).strip() != str(target_gene_id).strip():
-                continue
-            if row_activity_name.strip().upper() != bioactivity_measure:
-                continue
+            response_columns = response_table.get('Columns')
+            response_rows = response_table.get('Row')
+            if not response_columns or not response_rows:
+                return None
 
-            # Extract the activity value (in µM) and convert it to nM
             try:
-                value_um = float(row_cell[activity_value_idx])
-                value_nm = value_um * 1000.0
-                ic50_values.append(value_nm)
-            except (ValueError, TypeError):
-                continue
+                columns_list = response_columns.get('Column', [])
+                target_gene_idx = columns_list.index('Target GeneID')
+                activity_name_idx = columns_list.index('Activity Name')
+                activity_value_idx = columns_list.index('Activity Value [uM]')
+            except ValueError as e:
+                logger.error(f'Column not found in bioassay data: {e}')
+                return None
 
-        if ic50_values:
-            return min(ic50_values)
+            grouped_activities = {measure.upper(): [] for measure in bioactivity_measures}
 
-    except Exception as e:
-        logger.error(f'Error retrieving potency for CID {cid}: {e}')
-        return None
+            for row in response_rows:
+                row_cell = row.get('Cell', [])
+                if not row_cell:
+                    continue
+
+                row_target_gene = row_cell[target_gene_idx]
+                row_activity_name_upper = row_cell[activity_name_idx].strip().upper()
+
+                if (str(row_target_gene).strip() == str(target_gene_id) and row_activity_name_upper in grouped_activities.keys()
+                        and row_cell[activity_value_idx]):
+                    try:
+                        # Extract the activity value (in µM) and convert it to nM
+                        value_um = float(row_cell[activity_value_idx])
+                        value_nm = value_um * 1000.0
+
+                        # Store the measure name, value, and its priority index
+                        grouped_activities[row_activity_name_upper].append(value_nm)
+                    except (ValueError, TypeError):
+                        continue
+
+            # Find the best list of values based on the priority list
+            final_measure_type = None
+            final_values = []
+            for measure in bioactivity_measures:
+                if grouped_activities[measure.upper()]:
+                    final_measure_type = measure.upper()
+                    final_values = grouped_activities[final_measure_type]
+                    break  # Stop at the first (highest-priority) measure found
+
+            if not final_values:
+                return None
+
+            # Calculate statistics on the chosen list of values
+            count = len(final_values)
+            return {
+                "activity_type": final_measure_type,
+                "best_value": min(final_values),
+                "n_measurements": count,
+                "mean_value": statistics.mean(final_values) if count > 0 else None,
+                "median_value": statistics.median(final_values) if count > 0 else None,
+                "std_dev_value": statistics.stdev(final_values) if count > 1 else 0.0,
+            }
+
+        except Exception as e:
+            message = f"Attempt {attempt + 1}/{max_retries} failed for CID {cid} bioassay data: {e}"
+            logger.warning(message) if logger else print(message)
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+            else:
+                final_message = f"All {max_retries} retries failed for CID {cid} bioassay data."
+                logger.error(final_message) if logger else print(final_message)
 
     return None
