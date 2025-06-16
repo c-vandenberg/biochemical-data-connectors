@@ -43,7 +43,7 @@ class BioactiveCompound:
     iupac_name: Optional[str] = None
     molecular_formula: Optional[str] = None
     molecular_weight: Optional[float] = None
-    mean_activity_value: Optional[float] = None
-    median_activity_value: Optional[float] = None
-    std_dev_activity_value: Optional[float] = None
+    mean_activity: Optional[float] = None
+    median_activity: Optional[float] = None
+    std_dev_activity: Optional[float] = None
     raw_data: Optional[Any] = field(default=None, repr=False)
