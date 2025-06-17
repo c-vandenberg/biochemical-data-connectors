@@ -1,5 +1,16 @@
 from enum import Enum
 
+CONVERSION_FACTORS_TO_NM = {
+    "NM": 1.0,
+    "NANOMOLAR": 1.0,
+    "UM": 1000.0,
+    "MICROMOLAR": 1000.0,
+    "MM": 1_000_000.0,
+    "MILLIMOLAR": 1_000_000.0,
+    "PM": 0.001,
+    "PICOMOLAR": 0.001
+}
+
 
 class RestApiEndpoints(Enum):
     PDB_ID_UNIPROT_MAPPING = "https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id}"

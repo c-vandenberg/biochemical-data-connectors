@@ -1,19 +1,23 @@
 import time
+
 import requests
 import logging
+import statistics
 import concurrent.futures
 from abc import ABC, abstractmethod
 from functools import partial
+from collections import defaultdict
 from typing import List, Dict, Optional, Any
 
 import pubchempy as pcp
 from chembl_webresource_client.new_client import new_client
 
-from biochemical_data_connectors.constants import RestApiEndpoints
+from biochemical_data_connectors.constants import RestApiEndpoints, CONVERSION_FACTORS_TO_NM
 from biochemical_data_connectors.models import BioactiveCompound
 from biochemical_data_connectors.utils.iter_utils import batch_iterable
-from biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping
+from biochemical_data_connectors.utils.api.chembl_api import ChEMBLAPIClient
 from biochemical_data_connectors.utils.api.pubchem_api import PubChemAPIClient, get_compounds_in_batches
+from biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping
 
 
 class BaseBioactivesConnector(ABC):
@@ -83,12 +87,13 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
     def __init__(
         self,
         bioactivity_measures: List[str],
-        client = None,
+        core_chembl_client = None,
         bioactivity_threshold: Optional[float] = None, # In nM (e.g. 1000 nM threshold to filter for compounds with Kd <= 1 µM)
         logger: Optional[logging.Logger] = None
     ):
         super().__init__(bioactivity_measures, bioactivity_threshold, logger)
-        self._client = client if client else new_client
+        self._chembl_webresource_client = core_chembl_client if core_chembl_client else new_client
+        self._chembl_api_client: ChEMBLAPIClient = ChEMBLAPIClient(logger=self._logger)
 
     def get_bioactive_compounds(self, target_uniprot_id: str) -> List[BioactiveCompound]:
         """
@@ -109,86 +114,106 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             A list of BioactiveCompound objects meeting the criteria.
         """
         # 1) Search for the target by UniProt ID and retrieve the first matching result
-        target_results = self._client.target.filter(target_components__accession=target_uniprot_id)
+        target_results = self._chembl_webresource_client.target.filter(target_components__accession=target_uniprot_id)
         if not target_results:
             self._logger.error(f"No matching target found for UniProt ID {target_uniprot_id}")
             return []
 
-        target_id = target_results[0]['target_chembl_id']
+        target_chembl_id = target_results[0]['target_chembl_id']
 
-        # 2) Build the base parameters for ChEMBL REST API.
-        #    Filter activities based on the specified standard type (e.g. IC50)
-        params = {
-            "target_chembl_id": target_id,
-            "standard_type": self._bioactivity_measures,
-            "standard_units": "nM"
-        }
+        # 2) Fetch ALL activity records for this target
+        self._logger.info(f"Fetching all activities for ChEMBL ID {target_chembl_id}...")
+        all_activity_records = self._chembl_api_client.get_activities_for_target(
+            target_chembl_id,
+            self._bioactivity_measures
+        )
+        self._logger.info(f"Found {len(all_activity_records)} total activity records.")
 
-        # 2.1) Add threshold value to params if set
-        if self._bioactivity_threshold is not None:
-            # standard_value__lte is the ChEMBL REST parameter for “≤”
-            params["standard_value__lte"] = self._bioactivity_threshold
+        # 3) Group all activity records by compound ID
+        grouped_by_compound = defaultdict(list)
+        for record in all_activity_records:
+            chembl_id = record.get('molecule_chembl_id')
+            if chembl_id:
+                grouped_by_compound[chembl_id].append(record)
 
-        # 2.2) Paginate REST API requests
-        limit: int = 1000
-        offset: int = 0
-        chembl_activity_url: str = RestApiEndpoints.CHEMBL_ACTIVITY.url()
-        bioactive_compounds: List[BioactiveCompound] = []
-        chembl_start = time.time()
+        # 4) Process each unique compound to calculate stats and create final object
+        all_bioactives: List[BioactiveCompound] = []
+        for chembl_id, records in grouped_by_compound.items():
 
-        while True:
-            page_params = {
-                **params,
-                "limit": limit,
-                "offset": offset
-            }
-
-            chembl_activity_request = requests.get(
-                chembl_activity_url,
-                params=page_params,
-                timeout=15
-            )
-
-            chembl_activity_request.raise_for_status()
-            activity_data = chembl_activity_request.json()
-
-            records = activity_data.get('activities', [])
-            if not records:
-                break
-
+            # 4a) Group this compound's activities by measure type, converting units to nM
+            grouped_activities = defaultdict(list)
             for record in records:
-                structures = record.get('molecule_structures')
-                properties = record.get('molecule_properties')
+                unit = str(record.get('standard_units', '')).upper()
+                value = record.get('standard_value')
+                activity_type = str(record.get('standard_type', '')).upper()
 
-                if not all([
-                    record.get('molecule_chembl_id'),
-                    record.get('canonical_smiles'),
-                    record.get('standard_value')
-                ]):
+                if not value:
                     continue
 
-                compound_obj = BioactiveCompound(
-                    source_db="ChEMBL",
-                    source_id=record['molecule_chembl_id'],
-                    smiles=record['canonical_smiles'],
-                    activity_type=record['standard_type'],
-                    activity_value=float(record['standard_value']),
-                    source_inchikey=structures['standard_inchi_key'] if structures['standard_inchi_key'] else None,
-                    iupac_name=structures.get('iupac_name') if structures.get('iupac_name') else None,
-                    molecular_formula=properties.get('full_molformula') if properties and properties.get(
-                        'full_molformula') else None,
-                    molecular_weight=float(properties.get('mw_freebase')) if properties and properties.get(
-                        'mw_freebase') else None,
-                    raw_data=record
-                )
-                bioactive_compounds.append(compound_obj)
+                conversion_factor = CONVERSION_FACTORS_TO_NM.get(unit)
+                if conversion_factor:
+                    try:
+                        value_nm = float(value) * conversion_factor
+                        grouped_activities[activity_type].append(value_nm)
+                    except (ValueError,TypeError):
+                        continue
 
-            offset += limit
+            final_measure_type = None
+            final_values = []
+            for measure in self._bioactivity_measures:
+                measure_upper = measure.upper()
+                if grouped_activities[measure_upper]:
+                    final_measure_type = measure_upper
+                    final_values = grouped_activities[measure_upper]
+                    break
 
-        chembl_end = time.time()
-        self._logger.info(f'ChEMBL total query time: {round(chembl_end - chembl_start)} seconds')
+            if not final_values:
+                continue
 
-        return bioactive_compounds
+            # 4c) Calculate bioassay data statistics
+            count = len(final_values)
+            compound_bioassay_data = {
+                "activity_type": final_measure_type,
+                "best_value": min(final_values),
+                "n_measurements": count,
+                "mean_value": statistics.mean(final_values) if count > 0 else None,
+                "median_value": statistics.median(final_values) if count > 0 else None,
+                "std_dev_value": statistics.stdev(final_values) if count > 1 else 0.0,
+            }
+
+            # 4d) Create the final BioactiveCompound object using data from the first record
+            #     (since molecule properties will be the same across all records for this compound)
+            first_record = records[0]
+            structures = first_record.get('molecule_structures')
+            properties = first_record.get('molecule_properties')
+
+            compound_obj = BioactiveCompound(
+                source_db="ChEMBL",
+                source_id=chembl_id,
+                smiles=first_record.get('canonical_smiles'),
+                source_inchikey=structures.get('standard_inchi_key') if structures else None,
+                iupac_name=structures.get('iupac_name') if structures else None,
+                molecular_formula=properties.get('full_molformula') if properties else None,
+                molecular_weight=float(properties.get('mw_freebase')) if properties and properties.get(
+                    'mw_freebase') else None,
+                raw_data=records,  # Store all records for this compound
+                **compound_bioassay_data  # Unpack the statistics dictionary
+            )
+            all_bioactives.append(compound_obj)
+
+        # 5) Filter the final list by the 'activity_value' if a threshold was provided.
+        if self._bioactivity_threshold is not None:
+            self._logger.info(
+                f"Filtering {len(all_bioactives)} compounds with threshold: <= {self._bioactivity_threshold} nM"
+            )
+            filtered_bioactives = [
+                compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
+            ]
+            self._logger.info(f"Found {len(filtered_bioactives)} compounds after filtering.")
+
+            return filtered_bioactives
+
+        return all_bioactives
 
 
 class PubChemBioactivesConnector(BaseBioactivesConnector):
@@ -342,8 +367,8 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             self._logger.info(f"Found {len(filtered_bioactives)} compounds after filtering.")
 
             return filtered_bioactives
-        else:
-            return all_bioactives
+
+        return all_bioactives
 
     @staticmethod
     def _create_bioactive_compound(
