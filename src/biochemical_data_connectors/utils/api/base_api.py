@@ -1,7 +1,7 @@
 import requests
 import logging
 from requests.adapters import HTTPAdapter, Retry
-from typing import List, Dict, Optional
+from typing import Optional
 
 
 class BaseAPIClient:

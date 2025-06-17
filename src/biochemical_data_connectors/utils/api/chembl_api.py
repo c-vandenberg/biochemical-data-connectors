@@ -8,6 +8,7 @@ from typing import List, Dict, Optional
 from biochemical_data_connectors.utils.api.base_api import BaseAPIClient
 from biochemical_data_connectors.constants import RestApiEndpoints
 
+
 class ChEMBLAPIClient(BaseAPIClient):
     """
     A client for interacting with the ChEMBL API.
