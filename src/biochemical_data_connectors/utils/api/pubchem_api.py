@@ -19,8 +19,9 @@ class PubChemAPIClient(BaseAPIClient):
     API. A persistent `requests.Session` instance with a retry strategy handles
     transient network errors and API rate-limiting.
     """
-    def __init__(self):
+    def __init__(self, logger: Optional[logging.Logger] = None):
         super().__init__()
+        self._logger = logger if logger else logging.getLogger(__name__)
 
     def get_active_aids(self, target_gene_id: str) -> List[str]:
         """

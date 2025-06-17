@@ -1,6 +1,5 @@
 import time
 
-import requests
 import logging
 import statistics
 import concurrent.futures
@@ -70,17 +69,18 @@ class BaseBioactivesConnector(ABC):
 
 class ChEMBLBioactivesConnector(BaseBioactivesConnector):
     """
-    Extracts bioactive compounds for a given target from ChEMBL using a UniProt accession.
+    Extracts bioactive compounds from ChEMBL using a target's UniProt accession.
 
     Attributes
     ----------
-    _client : object, optional
-        A ChEMBL client instance used for making API requests. If None, the default client
-        from `chembl_webresource_client.new_client` will be used.
+    _chembl_webresource_client : object
+        A client for the high-level ChEMBL API, used for target lookups.
+    _chembl_api_client : ChEMBLAPIClient
+        A client for the low-level ChEMBL REST API, used for activity fetching.
 
     Methods
     -------
-    get_bioactive_compounds(target: str) -> List[str]
+    get_bioactive_compounds(target: str) -> List[BioactiveCompound]
         Returns a list of `BioactiveCompound` objects for a target UniProt ID
         identifier.
     """
@@ -97,7 +97,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
 
     def get_bioactive_compounds(self, target_uniprot_id: str) -> List[BioactiveCompound]:
         """
-        Retrieve bioactive compound objects for a given target from ChEMBL.
+        Retrieve bioassay data for bioactive compounds from ChEMBL using a target's UniProt accession.
 
         This method queries the ChEMBL activity API, fetching full records
         for compounds that match the target and bioactivity criteria, and
@@ -121,7 +121,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
 
         target_chembl_id = target_results[0]['target_chembl_id']
 
-        # 2) Fetch ALL activity records for this target
+        # 2) Fetch all activity records for this target
         self._logger.info(f"Fetching all activities for ChEMBL ID {target_chembl_id}...")
         all_activity_records = self._chembl_api_client.get_activities_for_target(
             target_chembl_id,
@@ -140,7 +140,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         all_bioactives: List[BioactiveCompound] = []
         for chembl_id, records in grouped_by_compound.items():
 
-            # 4a) Group this compound's activities by measure type, converting units to nM
+            # 4.1) Group this compound's activities by measure type, converting units to nM
             grouped_activities = defaultdict(list)
             for record in records:
                 unit = str(record.get('standard_units', '')).upper()
@@ -170,7 +170,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             if not final_values:
                 continue
 
-            # 4c) Calculate bioassay data statistics
+            # 4.2) Calculate bioassay data statistics
             count = len(final_values)
             compound_bioassay_data = {
                 "activity_type": final_measure_type,
@@ -181,7 +181,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 "std_dev_value": statistics.stdev(final_values) if count > 1 else 0.0,
             }
 
-            # 4d) Create the final BioactiveCompound object using data from the first record
+            # 4.3) Create the final BioactiveCompound object using data from the first record
             #     (since molecule properties will be the same across all records for this compound)
             first_record = records[0]
             structures = first_record.get('molecule_structures')
