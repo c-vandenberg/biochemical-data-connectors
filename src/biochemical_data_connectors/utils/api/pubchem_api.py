@@ -2,67 +2,26 @@ import time
 import statistics
 import requests
 import logging
-from requests.adapters import HTTPAdapter, Retry
 from typing import List, Dict, Any, Optional
 
 import pubchempy as pcp
 
-from biochemical_data_connectors.constants import RestApiEndpoints
+from biochemical_data_connectors.utils.api.base_api import BaseAPIClient
+from biochemical_data_connectors.constants import RestApiEndpoints, CONVERSION_FACTORS_TO_NM
 from biochemical_data_connectors.utils.iter_utils import batch_iterable
 
-CONVERSION_FACTORS_TO_NM = {
-    "NM": 1.0,
-    "NANOMOLAR": 1.0,
-    "UM": 1000.0,
-    "MICROMOLAR": 1000.0,
-    "MM": 1_000_000.0,
-    "MILLIMOLAR": 1_000_000.0,
-    "PM": 0.001,
-    "PICOMOLAR": 0.001
-}
 
-
-class PubChemAPIClient:
+class PubChemAPIClient(BaseAPIClient):
     """
     A client for interacting with the PubChem API.
 
     This class encapsulates all direct interactions with the PubChem PUG REST
     API. A persistent `requests.Session` instance with a retry strategy handles
     transient network errors and API rate-limiting.
-
-    Attributes
-    ----------
-    session : requests.Session
-        A configured requests session with automatic retries for server errors.
     """
     def __init__(self, logger: Optional[logging.Logger] = None):
+        super().__init__()
         self._logger = logger if logger else logging.getLogger(__name__)
-        self.session = self._create_session()
-
-    @staticmethod
-    def _create_session() -> requests.Session:
-        """
-        Create a `requests.Session` instance with a robust retry strategy.
-
-        The retry strategy automatically handles transient network issues and
-        common server-side errors (like 5xx status codes), making the client
-        more resilient.
-
-        Returns
-        -------
-        requests.Session
-            A configured session object with mounted retry logic.
-        """
-        session = requests.Session()
-        retries = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[500, 502, 503, 504]
-        )
-        # Mount the retry strategy to the session for all HTTPS requests.
-        session.mount("https://", HTTPAdapter(max_retries=retries))
-
-        return session
 
     def get_active_aids(self, target_gene_id: str) -> List[str]:
         """
@@ -88,7 +47,7 @@ class PubChemAPIClient:
         )
         try:
             # 3) Make the API call using the persistent session and parse the JSON to extract the list of AIDs.
-            response = self.session.get(assay_id_url, timeout=10)
+            response = self._session.get(assay_id_url, timeout=10)
             response.raise_for_status()
             data = response.json()
 
@@ -118,7 +77,7 @@ class PubChemAPIClient:
         compound_id_url = RestApiEndpoints.PUBCHEM_COMPOUND_ID_FROM_ASSAY_ID.url(aid=aid)
         try:
             # 2) Make the API call using the persistent session and parse the nested JSON to extract the list of CIDs.
-            response = self.session.get(compound_id_url, timeout=10)
+            response = self._session.get(compound_id_url, timeout=10)
             response.raise_for_status()
             data = response.json()
             info_list = data.get("InformationList", {}).get("Information", [])
@@ -190,7 +149,7 @@ class PubChemAPIClient:
         assay_summary_url = RestApiEndpoints.PUBCHEM_ASSAY_SUMMARY_FROM_CID.url(cid=cid)
         try:
             # 2) Make the API call and perform initial validation on the JSON response.
-            response = self.session.get(assay_summary_url, timeout=10)
+            response = self._session.get(assay_summary_url, timeout=10)
             response.raise_for_status()
             response_json = response.json()
 
