@@ -105,7 +105,8 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 target_chembl_id, self._bioactivity_measures
             ),
             data_type='ChEMBL activity records',
-            force_refresh=force_refresh
+            force_refresh=force_refresh,
+            logger=self._logger
         )
         self._logger.info(f"Found {len(all_activity_records)} total activity records.")
 
