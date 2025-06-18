@@ -1,4 +1,5 @@
 chembl_webresource_client==0.10.9
+dimorphite_dl==2.0.1
 ord_schema==0.3.99
 pubchempy==1.0.4
 rdkit==2025.3.2
