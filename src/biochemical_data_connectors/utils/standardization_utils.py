@@ -8,7 +8,7 @@ from dimorphite_dl import protonate_smiles
 salt_remover = SaltRemover()
 
 
-class MoleculeStandardizer:
+class CompoundStandardizer:
     def __init__(self, logger: Optional[logging.Logger]):
         self._logger = logger if logger else logging.getLogger(__name__)
         self._salt_remover = SaltRemover
@@ -43,7 +43,7 @@ class MoleculeStandardizer:
             standardized molecule, or None if the input SMILES is invalid.
         """
         try:
-            # 1. Create initial RDKit molecule object
+            # 1. Create initial RDKit `mol` object
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
                 raise ValueError("Invalid input SMILES string")
