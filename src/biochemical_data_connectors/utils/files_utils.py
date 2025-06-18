@@ -27,11 +27,14 @@ def get_cached_or_fetch(
     data_type : str, optional
         A descriptive name for the data being processed, used for logging.
         Default is 'items'.
-    force_refresh : bool, optional
-        If True, ignores the cache and always executes the fetch_function.
     use_pickle : bool, optional
         If True, use the binary pickle format for serialization. If False
         (default), use JSON.
+    force_refresh : bool, optional
+        If True, ignores the cache and always executes the fetch_function.
+    logger : logging.Logger, optional
+        A logger instance for status messages. If `None` (default), messages
+        are printed to standard output.
 
     Returns
     -------

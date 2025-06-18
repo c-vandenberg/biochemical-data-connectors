@@ -96,7 +96,8 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             cache_file_path=aids_cache_file,
             fetch_function=lambda: self._api_client.get_active_aids(target_gene_id),
             data_type='PubChem AIDs',
-            force_refresh=force_refresh
+            force_refresh=force_refresh,
+            logger=self._logger
         )
 
         if not aid_list:
@@ -109,7 +110,8 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             cache_file_path=cids_cache_file,
             fetch_function=lambda: self._fetch_all_cids(aids_list=aid_list),
             data_type='PubChem CIDs',
-            force_refresh=force_refresh
+            force_refresh=force_refresh,
+            logger=self._logger
         )
 
         if not active_cids_list:
@@ -124,7 +126,8 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             fetch_function=lambda: get_compounds_in_batches(cids=active_cids_list, logger=self._logger),
             data_type='PubChem bioactive `pubchempy` compound',
             use_pickle=True,
-            force_refresh=force_refresh
+            force_refresh=force_refresh,
+            logger=self._logger
         )
         pubchempy_compound_api_end: float = time.time()
         self._logger.info(f'PubChem bioactive compounds from CIDs total API query time: '
@@ -139,7 +142,8 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
                 target_gene_id=target_gene_id
             ),
             data_type='PubChem Compound Bioassay',
-            force_refresh=force_refresh
+            force_refresh=force_refresh,
+            logger=self._logger
         )
 
         # 6) Create the final list of `BioactiveCompound` objects, using cache if available.
@@ -155,7 +159,8 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             ),
             data_type='BioactiveCompound object',
             use_pickle=True,
-            force_refresh=force_refresh
+            force_refresh=force_refresh,
+            logger=self._logger
         )
 
         # 7) Filter final list of `BioactiveCompound` objects by potency if threshold is provided.
