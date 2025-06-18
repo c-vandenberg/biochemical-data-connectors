@@ -170,7 +170,7 @@ class PubChemAPIClient(BaseAPIClient):
                 activity_unit_idx = None
                 unit_is_explicit = False
 
-                # Prioritize explicit unit columns, but fallback to assuming µM from the header.
+                # Prioritise explicit unit columns, but fallback to assuming µM from the header.
                 if 'Activity Unit' in response_columns and 'Activity Value' in response_columns:
                     activity_value_idx = response_columns.index('Activity Value')
                     activity_unit_idx = response_columns.index('Activity Unit')

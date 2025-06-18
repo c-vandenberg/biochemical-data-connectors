@@ -34,13 +34,14 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
     _chembl_api_client : ChEMBLAPIClient
         A client for the low-level ChEMBL REST API, used for activity fetching.
     """
+
     def __init__(
         self,
         bioactivity_measures: List[str],
-        bioactivity_threshold: Optional[float] = None, # In nM.
+        bioactivity_threshold: Optional[float] = None,  # In nM.
         cache_dir: str = './data/cache',
         logger: Optional[logging.Logger] = None,
-        core_chembl_client = None,
+        core_chembl_client=None,
     ):
         super().__init__(
             bioactivity_measures=bioactivity_measures,
@@ -105,8 +106,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 target_chembl_id, self._bioactivity_measures
             ),
             data_type='ChEMBL activity records',
-            force_refresh=force_refresh,
-            logger=self._logger
+            force_refresh=force_refresh
         )
         self._logger.info(f"Found {len(all_activity_records)} total activity records.")
 
@@ -120,18 +120,21 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         # 4) Process each unique compound to calculate stats and create final object
         all_bioactives: List[BioactiveCompound] = []
         for chembl_id, records in grouped_by_compound.items():
-            # Check for valid SMILES and invalid data comment in first record
-            first_record = records[0]
-            canonical_smiles = first_record.get('canonical_smiles')
-            data_validity_comment = first_record.get('data_validity_comment')
-
-            # Skip record if data record is invalid or is missing SMILES
-            if (data_validity_comment and data_validity_comment.upper() == CHEMBL_INVALID_DATA_COMMENT) or not canonical_smiles:
+            # 4.1) Find the first available canonical SMILES from all records for this compound.
+            #      If none found, skip this compound.
+            canonical_smiles = next((r.get('canonical_smiles') for r in records if r.get('canonical_smiles')), None)
+            if not canonical_smiles:
                 continue
 
-            # 4.1) Group this compound's activities by measure type, converting units to nM
+            # 4.2) Group this compound's activities by measure type, converting units to nM
             grouped_activities = defaultdict(list)
             for record in records:
+                data_validity_comment = record.get('data_validity_comment')
+
+                # Skip record if data record is invalid
+                if data_validity_comment and data_validity_comment.upper() == CHEMBL_INVALID_DATA_COMMENT:
+                    continue
+
                 unit = str(record.get('standard_units', '')).upper()
                 value = record.get('standard_value')
                 activity_type = str(record.get('standard_type', '')).upper()
@@ -147,7 +150,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                     except (ValueError, TypeError):
                         continue
 
-            # 4.2) Find the highest-priority activity data for this compound.
+            # 4.3) Find the highest-priority activity data for this compound.
             final_measure_type = None
             final_values = []
             for measure in self._bioactivity_measures:
@@ -160,7 +163,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             if not final_values:
                 continue
 
-            # 4.3) Calculate bioassay data statistics
+            # 4.4) Calculate bioassay data statistics
             count = len(final_values)
             compound_bioassay_data = {
                 "activity_type": final_measure_type,
@@ -171,7 +174,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 "std_dev_activity": statistics.stdev(final_values) if count > 1 else 0.0,
             }
 
-            # 4.3) ChEMBL response doesn't provide InCHIKey, molecular formula, or molecular weight.
+            # 4.5) ChEMBL response doesn't provide InCHIKey, molecular formula, or molecular weight.
             #      Use RDKit to calculate these for consistency.
             inchikey = None
             mol_formula = None
@@ -190,13 +193,13 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 except (ValueError, TypeError):
                     format_mol_weight = None
 
-            # 4.4) Create the final BioactiveCompound object
+            # 4.6) Create the final BioactiveCompound object
             compound_obj = BioactiveCompound(
                 source_db="ChEMBL",
                 source_id=chembl_id,
                 smiles=canonical_smiles,
                 source_inchikey=inchikey,
-                iupac_name=first_record.get('iupac_name', None),
+                iupac_name=records[0].get('iupac_name', None),
                 molecular_formula=mol_formula,
                 molecular_weight=format_mol_weight,
                 raw_data=records,
