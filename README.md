@@ -70,8 +70,12 @@ biochemical-data-connectors/
 │       ├── models.py
 │       ├── connectors/
 │       │   ├── __init__.py
-│       │   ├── bioactive_compounds_connectors.py
-│       │   └── ord_connectors.py
+│       │   ├── ord_connectors.py
+│       │   └── bioactive_compounds
+│       │       ├── __init__.py
+│       │       ├── base_bioactives_connector.py
+│       │       ├── chembl_bioactives_connector.py
+│       │       └── pubchem_bioactives_connector.py
 │       └── utils/
 │           ├── __init__.py
 │           ├── iter_utils.py
