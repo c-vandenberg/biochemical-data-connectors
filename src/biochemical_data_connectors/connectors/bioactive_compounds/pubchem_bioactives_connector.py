@@ -154,6 +154,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         all_bioactives: List[BioactiveCompound] = get_cached_or_fetch(
             cache_file_path=bioactivecompound_cache_file,
             fetch_function=lambda: self._get_all_bioactive_compounds(
+                target_uniprot_id=target_uniprot_id,
                 pubchempy_compounds=pubchempy_compounds,
                 cid_to_bioassay_map=cid_to_bioassay_map
             ),
@@ -257,7 +258,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
                 )
                 for compound, bioassay_data in zip(compound_batch, batch_bioassay_data):
                     if bioassay_data:
-                        cid_to_bioassay_map[compound.cid] = bioassay_data
+                        cid_to_bioassay_map[str(compound.cid)] = bioassay_data
 
         potencies_api_end: float = time.time()
         self._logger.info(f"PubChem bioactive compound bioassays total API query time: "
@@ -268,6 +269,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
     def _get_all_bioactive_compounds(
         self,
+        target_uniprot_id: str,
         pubchempy_compounds: List[pcp.Compound],
         cid_to_bioassay_map: Dict[str, Any]
     ) -> List[BioactiveCompound]:
@@ -299,6 +301,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
                 continue
 
             compound_obj = self._create_bioactive_compound(
+                target_uniprot_id=target_uniprot_id,
                 pubchempy_compound=pubchempy_compound,
                 bioassay_data=compound_bioassay_data
             )
@@ -309,6 +312,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
     @staticmethod
     def _create_bioactive_compound(
+        target_uniprot_id: str,
         pubchempy_compound: pcp.Compound,
         bioassay_data: Dict[str, Any]
     ) -> Optional[BioactiveCompound]:
@@ -360,6 +364,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             source_db='PubChem',
             source_id=str(pubchempy_compound.cid),
             smiles=smiles,
+            target_uniprot=target_uniprot_id,
             activity_type=bioassay_data['activity_type'],
             activity_value=bioassay_data['best_value'],
             source_inchikey=final_inchikey,

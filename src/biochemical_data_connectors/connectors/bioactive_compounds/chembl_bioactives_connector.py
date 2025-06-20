@@ -106,7 +106,8 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 target_chembl_id, self._bioactivity_measures
             ),
             data_type='ChEMBL activity records',
-            force_refresh=force_refresh
+            force_refresh=force_refresh,
+            logger=self._logger
         )
         self._logger.info(f"Found {len(all_activity_records)} total activity records.")
 
@@ -198,6 +199,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 source_db="ChEMBL",
                 source_id=chembl_id,
                 smiles=canonical_smiles,
+                target_uniprot=target_uniprot_id,
                 source_inchikey=inchikey,
                 iupac_name=records[0].get('iupac_name', None),
                 molecular_formula=mol_formula,

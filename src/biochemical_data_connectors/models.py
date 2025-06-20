@@ -14,14 +14,21 @@ class BioactiveCompound:
     source_id : str
         The compound's primary identifier from the source database, e.g.,
         a ChEMBL ID or a PubChem CID.
-    source_inchikey : str
-        The standard 27-character InChIKey for the compound's structure from the source database.
     smiles : str
         The canonical SMILES string representing the molecule.
+    target_uniprot : str
+        The UniProt accession ID of the biological target.
     activity_type : str
         The type of bioactivity measurement, e.g., 'Kd', 'IC50'.
     activity_value : float
         The numeric value of the bioactivity, typically in nM.
+    n_measurements : int
+        The total number of measurements found for the primary `activity_type`.
+    source_inchikey : str
+        The standard 27-character InChIKey for the compound's structure from the source database.
+    standardized_inchikey : Optional[str]
+        The canonical InChIKey calculated from the standardized molecular
+        structure.
     iupac_name : Optional[str]
         The IUPAC name of the compound.
     molecular_formula : Optional[str]
@@ -35,11 +42,14 @@ class BioactiveCompound:
     """
     source_db: str
     source_id: str
+    target_uniprot: str
     smiles: str
+    target_uniprot: str
     activity_type: str
     activity_value: float
     n_measurements: int
     source_inchikey: Optional[str] = None
+    standardized_inchikey: Optional[str] = None
     iupac_name: Optional[str] = None
     molecular_formula: Optional[str] = None
     molecular_weight: Optional[float] = None
