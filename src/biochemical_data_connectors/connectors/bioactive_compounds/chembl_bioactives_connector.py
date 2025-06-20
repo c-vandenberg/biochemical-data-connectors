@@ -103,7 +103,8 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         all_activity_records = get_cached_or_fetch(
             cache_file_path=chembl_acitivites_cache_file,
             fetch_function=lambda: self._chembl_api_client.get_activities_for_target(
-                target_chembl_id, self._bioactivity_measures
+                target_chembl_id,
+                self._bioactivity_measures
             ),
             data_type='ChEMBL activity records',
             force_refresh=force_refresh,
