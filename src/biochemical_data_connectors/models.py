@@ -42,7 +42,6 @@ class BioactiveCompound:
     """
     source_db: str
     source_id: str
-    target_uniprot: str
     smiles: str
     target_uniprot: str
     activity_type: str

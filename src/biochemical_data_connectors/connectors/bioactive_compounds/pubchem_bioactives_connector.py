@@ -324,6 +324,8 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
         Parameters
         ----------
+        target_uniprot_id : str
+            The UniProt accession for the target.
         pubchempy_compound : pcp.Compound
             The source object from the `pubchempy` library.
         bioassay_data : Dict[str, Any]
