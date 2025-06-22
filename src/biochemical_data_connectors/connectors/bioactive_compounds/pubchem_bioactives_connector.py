@@ -91,7 +91,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
         # 2) Fetch Assay ID (AID) list using PubChem API, or load from cache
         os.makedirs(self._cache_dir, exist_ok=True)
-        aids_cache_file = os.path.join(self._cache_dir, f"{target_gene_id}_aids.json")
+        aids_cache_file = os.path.join(self._cache_dir, f"pubchem/{target_gene_id}_aids.json")
         aid_list = get_cached_or_fetch(
             cache_file_path=aids_cache_file,
             fetch_function=lambda: self._api_client.get_active_aids(target_gene_id),
@@ -105,7 +105,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             return []
 
         # 3) Fetch active compound IDs (CIDs) for each assay using PubChem API, or load from cache.
-        cids_cache_file = os.path.join(self._cache_dir, f"{target_gene_id}_cids.json")
+        cids_cache_file = os.path.join(self._cache_dir, f"pubchem/{target_gene_id}_cids.json")
         active_cids_list = get_cached_or_fetch(
             cache_file_path=cids_cache_file,
             fetch_function=lambda: self._fetch_all_cids(aids_list=aid_list),
@@ -120,7 +120,10 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
         # 4) Fetch full `pubchempy.Compound` objects for all CIDs using PubChem API, or load from cache.
         pubchempy_compound_api_start: float = time.time()
-        pubchempy_compound_cache_file = os.path.join(self._cache_dir, f"{target_gene_id}_pubchempy_compounds.pkl")
+        pubchempy_compound_cache_file = os.path.join(
+            self._cache_dir,
+            f"pubchem/{target_gene_id}_pubchempy_compounds.pkl"
+        )
         pubchempy_compounds = get_cached_or_fetch(
             cache_file_path=pubchempy_compound_cache_file,
             fetch_function=lambda: get_compounds_in_batches(cids=active_cids_list, logger=self._logger),
@@ -134,7 +137,10 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
                           f'{round(pubchempy_compound_api_end - pubchempy_compound_api_start)} seconds')
 
         # 5) Fetch bioassay data for all `pubchempy.Compound` compounds using PubChem API, or load from cache.
-        bioassay_cache_file = os.path.join(self._cache_dir, f"{target_gene_id}_cid_bioassay_map.json")
+        bioassay_cache_file = os.path.join(
+            self._cache_dir,
+            f"pubchem/{target_gene_id}_cid_bioassay_map.json"
+        )
         cid_to_bioassay_map = get_cached_or_fetch(
             cache_file_path=bioassay_cache_file,
             fetch_function=lambda: self._fetch_all_compound_bioassays(
@@ -149,7 +155,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         # 6) Create the final list of `BioactiveCompound` objects, using cache if available.
         bioactivecompound_cache_file = os.path.join(
             self._cache_dir,
-            f"{target_gene_id}_unfiltered_bioactivecompounds.pkl"
+            f"pubchem/{target_gene_id}_unfiltered_bioactivecompounds.pkl"
         )
         all_bioactives: List[BioactiveCompound] = get_cached_or_fetch(
             cache_file_path=bioactivecompound_cache_file,

@@ -11,13 +11,12 @@ salt_remover = SaltRemover()
 class CompoundStandardizer:
     def __init__(self, logger: Optional[logging.Logger]):
         self._logger = logger if logger else logging.getLogger(__name__)
-        self._salt_remover = SaltRemover
+        self._salt_remover = salt_remover
 
     def standardize_smiles(
         self,
         smiles: str,
-        ph: float = 7.4,
-        logger: Optional[logging.Logger] = None
+        ph: float = 7.4
     ) -> Optional[dict]:
         """
         Performs a full standardization workflow on a single SMILES string.
@@ -33,8 +32,6 @@ class CompoundStandardizer:
             The input SMILES string to be standardized.
         ph : float, optional
             The pH at which to standardize the protonation state. Default is 7.4.
-        logger : logging.Logger, optional
-            A logger for logging potential errors.
 
         Returns
         -------
@@ -46,10 +43,10 @@ class CompoundStandardizer:
             # 1. Create initial RDKit `mol` object
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
-                raise ValueError("Invalid input SMILES string")
+                self._logger.warning(f"Invalid input SMILES string: '{smiles}'")
 
             # 2. Remove salts to get the parent molecule
-            parent_mol = self._salt_remover.StripMol(mol)
+            parent_mol = self._salt_remover.StripMol(mol=mol)
             parent_smiles = Chem.MolToSmiles(parent_mol, canonical=True)
 
             # 3. Standardize protonation state using the imported function
@@ -64,7 +61,7 @@ class CompoundStandardizer:
             # 4. Create the final, fully standardized RDKit Mol object
             final_mol = Chem.MolFromSmiles(final_smiles)
             if final_mol is None:
-                raise ValueError("Failed to create molecule after standardization")
+                self._logger.warning(f"Failed to create compound after standardization for SMILES string: '{smiles}'")
 
             # 5. Generate final canonical representations
             canonical_smiles = Chem.MolToSmiles(final_mol, canonical=True, isomericSmiles=True)
@@ -76,7 +73,6 @@ class CompoundStandardizer:
             }
 
         except Exception as e:
-            if logger:
-                logger.warning(f"Failed to standardize SMILES '{smiles}': {e}")
+            self._logger.warning(f"Failed to standardize SMILES '{smiles}': {e}")
 
             return None
