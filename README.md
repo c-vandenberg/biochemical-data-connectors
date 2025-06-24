@@ -1,6 +1,6 @@
 # biochemical-data-connectors
 
-`biochemical-data-connectors` is a Python package for extracting chemical, biochemical, and bioactivity data from public databases like ORD, ChEMBL and PubChem.
+`biochemical-data-connectors` is a Python package for extracting chemical, biochemical, and bioactivity data from public databases like ChEMBL, PubChem, BindingDB, and the Open Reaction Database (ORD).
 
 ## Overview
 `biochemical-data-connectors` provides a simple and consistent interface to query major cheminformatics bioinformatics databases for compounds. It is designed to be a modular and reusable tool for researchers and developers in cheminformatics and drug discovery.
