@@ -177,34 +177,20 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             }
 
             # 4.5) ChEMBL response doesn't provide InCHIKey, molecular formula, or molecular weight.
-            #      Use RDKit to calculate these for consistency.
-            inchikey = None
-            mol_formula = None
-            mol_weight = None
-
+            #      Use RDKit to calculate these for consistency and create final BioactiveCompound object.
             mol = Chem.MolFromSmiles(canonical_smiles)
-            if mol is not None:
-                inchikey = Chem.MolToInchiKey(mol)
-                mol_formula = CalcMolFormula(mol)
-                mol_weight = Descriptors.MolWt(mol)
+            if not mol:
+                continue
 
-            format_mol_weight = None
-            if mol_weight is not None:
-                try:
-                    format_mol_weight = round(float(mol_weight), 2)
-                except (ValueError, TypeError):
-                    format_mol_weight = None
-
-            # 4.6) Create the final BioactiveCompound object
             compound_obj = BioactiveCompound(
                 source_db="ChEMBL",
                 source_id=chembl_id,
                 smiles=canonical_smiles,
                 target_uniprot=target_uniprot_id,
-                source_inchikey=inchikey,
+                source_inchikey=Chem.MolToInchiKey(mol),
                 iupac_name=records[0].get('iupac_name', None),
-                molecular_formula=mol_formula,
-                molecular_weight=format_mol_weight,
+                molecular_formula=CalcMolFormula(mol),
+                molecular_weight=round(Descriptors.MolWt(mol), 2),
                 raw_data=records,
                 **compound_bioassay_data  # Unpack the statistics dictionary
             )
