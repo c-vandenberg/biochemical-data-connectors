@@ -36,6 +36,10 @@ class RestApiEndpoints(Enum):
         "cid/{cid}/assaysummary/JSON"
     )
 
+    BINDINGDB_LIGANDS_FROM_UNIPROT_ID = (
+        "https://bindingdb.org/rest/getLigandsByUniprot?uniprot={uniprot_id}{cutoff_str}&response=application/json"
+    )
+
     def url(self, **kwargs) -> str:
         """
         Return the fully‐qualified URL, substituting any placeholders
