@@ -1,3 +1,4 @@
+import math
 import logging
 from typing import Optional
 
@@ -76,3 +77,25 @@ class CompoundStandardizer:
             self._logger.warning(f"Failed to standardize SMILES '{smiles}': {e}")
 
             return None
+
+
+def convert_p_value_to_nm(p_value: float):
+    """
+    Converts a p-value (e.g., pKi, pIC50) to a nanomolar (nM) value.
+
+    Parameters
+    ----------
+    p_value : float
+        The logarithmic activity value (e.g., 7.5).
+
+    Returns
+    -------
+    float
+        The activity value converted to nanomolar concentration.
+    """
+    if p_value is None:
+        return None
+
+    molar_concentration = math.pow(10, -p_value)
+
+    return molar_concentration * 1e9

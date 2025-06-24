@@ -37,39 +37,64 @@ class IUPHARAPIClient(BaseAPIClient):
     def get_actives_from_target_id(
         self,
         target_id: int,
-        bioactivity_measures: List[str],
-        bioactivity_threshold: Optional[float] = None,  # In nM.
+        p_bioactivity_measures: List[str],
     ) -> List[Any]:
-        standardized_measures = [measure.upper() for measure in bioactivity_measures]
+        """
+        Queries IUPHAR/BPS Guide to PHARMACOLOGY for interactions and returns
+        standardized data.
+
+        This method fetches interactions for a target, filtering by the desired
+        p-value activity types at the API level.
+
+        Parameters
+        ----------
+        target_id : int
+            The internal IUPHAR/BPS target ID.
+        p_bioactivity_measures : List[str]
+            A list of p-value activity types to fetch (e.g., ['pKi', 'pIC50']).
+
+        Returns
+        -------
+        List[Dict]
+            A list of dictionaries, each representing a clean interaction record.
+        """
+        all_records = []
         iuphar_interactions_query_start = time.time()
-        iuphar_interactions_url = f'https://www.guidetopharmacology.org/services/targets/{target_id}/interactions'
+
+        # 1. Iterate through the desired measure types and make a separate API call for each.
+        for p_measure in p_bioactivity_measures:
+            self._logger.info(f"Querying IUPHAR/BPS for {p_measure} data for target ID {target_id}...")
+
+            # 2. Build the URL with the affinityType filter.
+            iuphar_interactions_url = \
+                f"https://www.guidetopharmacology.org/services/targets/{target_id}/interactions?affinityType={p_measure}"
+            try:
+                response = self._session.get(iuphar_interactions_url, timeout=15)
+                response.raise_for_status()
+                iuphar_interactions = response.json()
+
+                # 3. Defensive logic to ensure interactions are returned and contain affinity
+                if not iuphar_interactions:
+                    self._logger.warning(f'No active ligand interactions found for target ID {target_id}')
+                    continue
+
+                for interaction in iuphar_interactions:
+                    if interaction.get('affinity') is None:
+                        continue
+
+                    all_records.append(interaction)
+            except requests.exceptions.RequestException as e:
+                self._logger.error(f"Error querying IUPHAR/BPS for {p_measure} at target {target_id}: {e}")
+
+        iuphar_interactions_query_end = time.time()
         self._logger.info(
-            f"Querying IUPHAR/BPS Guide to Pharmacology API for target ID {target_id} ligand interactions"
+            f'IUPHAR interactions total query time: '
+            f'{round(iuphar_interactions_query_end - iuphar_interactions_query_start)} seconds'
         )
-        try:
-            response = self._session.get(iuphar_interactions_url, timeout=15)
-            response.raise_for_status()
-            iuphar_interactions = response.json()
+        self._logger.info(f'IUPHAR/BPS query found a total of {len(all_records)} relevant records.')
 
-            iuphar_interactions_query_end = time.time()
-            self._logger.info(
-                f'IUPHAR total query time: {round(iuphar_interactions_query_end - iuphar_interactions_query_start)} seconds'
-            )
+        return all_records
 
-            if not iuphar_interactions:
-                self._logger.warning(f'No active ligand interactions found for target ID {target_id}')
-                return []
-
-            filtered_iuphar_interactions = [
-                record for record in iuphar_interactions
-                if record.get('originalAffinityType')
-                   and record.get('originalAffinityType').upper() in standardized_measures
-            ]
-
-            return filtered_iuphar_interactions
-        except requests.exceptions.RequestException as e:
-            self._logger.error(f"Error querying IUPHAR/BPS interactions for {target_id}: {e}")
-            return []
 
     def get_mol_data_from_ligand_id(self, ligand_id: str) -> Dict:
         iuphar_ligand_structure_url = f'https://www.guidetopharmacology.org/services/ligands/{ligand_id}/structure'
