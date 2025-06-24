@@ -74,14 +74,19 @@ biochemical-data-connectors/
 │       │   └── bioactive_compounds
 │       │       ├── __init__.py
 │       │       ├── base_bioactives_connector.py
+│       │       ├── bindingdb_bioactives_connector.py
 │       │       ├── chembl_bioactives_connector.py
 │       │       └── pubchem_bioactives_connector.py
 │       └── utils/
 │           ├── __init__.py
+│           ├── files_utils.py
 │           ├── iter_utils.py
 │           ├── standardization_utils.py
 │           └── api/
 │               ├── __init__.py
+│               ├── base_api.py
+│               ├── bindingbd_api.py
+│               ├── chembl_api.py
 │               ├── mappings.py
 │               └── pubchem_api.py
 ├── tests/
