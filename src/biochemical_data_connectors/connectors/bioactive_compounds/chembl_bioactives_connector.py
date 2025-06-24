@@ -199,12 +199,12 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         # 5) Filter the final list by the 'activity_value' if a threshold was provided.
         if self._bioactivity_threshold is not None:
             self._logger.info(
-                f"Filtering {len(all_bioactives)} compounds with threshold: <= {self._bioactivity_threshold} nM"
+                f"Filtering {len(all_bioactives)} ChEMBL compounds with threshold: <= {self._bioactivity_threshold} nM"
             )
             filtered_bioactives = [
                 compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
             ]
-            self._logger.info(f"Found {len(filtered_bioactives)} compounds after filtering.")
+            self._logger.info(f"Found {len(filtered_bioactives)} ChEMBL compounds after filtering.")
 
             return filtered_bioactives
 

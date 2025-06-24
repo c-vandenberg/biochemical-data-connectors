@@ -172,12 +172,12 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
         # 7) Filter final list of `BioactiveCompound` objects by potency if threshold is provided.
         if self._bioactivity_threshold is not None:
-            self._logger.info(f"Filtering {len(all_bioactives)} compounds with threshold: "
+            self._logger.info(f"Filtering {len(all_bioactives)} PubChem compounds with threshold: "
                               f"<= {self._bioactivity_threshold} nM")
             filtered_bioactives: List[BioactiveCompound] = [
                 compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
             ]
-            self._logger.info(f"Found {len(filtered_bioactives)} compounds after filtering.")
+            self._logger.info(f"Found {len(filtered_bioactives)} PubChem compounds after filtering.")
 
             return filtered_bioactives
 

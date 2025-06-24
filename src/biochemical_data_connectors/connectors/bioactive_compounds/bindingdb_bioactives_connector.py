@@ -77,7 +77,7 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
         self._logger.info(f"Fetching/loading all BindingDB activities for Uniprot ID {target_uniprot_id}...")
         all_bdb_activity_records = get_cached_or_fetch(
             cache_file_path=bdb_activities_cache_file,
-            fetch_function=lambda: self._bdb_api_client.get_actives_from_target(
+        fetch_function=lambda: self._bdb_api_client.get_actives_from_target_uniprot(
                 uniprot_id=target_uniprot_id,
                 bioactivity_measures=self._bioactivity_measures,
                 bioactivity_threshold=self._bioactivity_threshold

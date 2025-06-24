@@ -1,7 +1,7 @@
 import time
 import requests
 import logging
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from biochemical_data_connectors.utils.api.base_api import BaseAPIClient
 from biochemical_data_connectors.constants import RestApiEndpoints
@@ -23,7 +23,7 @@ class BindingDBAPIClient(BaseAPIClient):
         uniprot_id: str,
         bioactivity_measures: List[str],
         bioactivity_threshold: Optional[float] = None,  # In nM.
-    ) -> List:
+    ) -> List[Any]:
         """
         Queries BindingDB for all affinity data for a given UniProt ID.
 
@@ -60,6 +60,9 @@ class BindingDBAPIClient(BaseAPIClient):
             response.raise_for_status()
             data = response.json()
             bdb_affinities = data.get('getLindsByUniprotResponse', {}).get('bdb.affinities', [])
+
+            bindingdb_end = time.time()
+            self._logger.info(f'BindingDB total query time: {round(bindingdb_end - bindingdb_start)} seconds')
             if not bdb_affinities:
                 self._logger.warning(f"No BindingDB actives found for {uniprot_id}.")
                 return []
@@ -67,8 +70,6 @@ class BindingDBAPIClient(BaseAPIClient):
             filtered_bdb_actives = [
                 record for record in bdb_affinities if record.get('bdb.affinity_type') in bioactivity_measures
             ]
-            bindingdb_end = time.time()
-            self._logger.info(f'Binding DB total query time: {round(bindingdb_end - bindingdb_start)} seconds')
 
             return filtered_bdb_actives
 
