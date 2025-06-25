@@ -76,6 +76,7 @@ biochemical-data-connectors/
 │       │       ├── base_bioactives_connector.py
 │       │       ├── bindingdb_bioactives_connector.py
 │       │       ├── chembl_bioactives_connector.py
+│       │       ├── iuphar_bioactives_connector.py
 │       │       └── pubchem_bioactives_connector.py
 │       └── utils/
 │           ├── __init__.py
@@ -87,6 +88,7 @@ biochemical-data-connectors/
 │               ├── base_api.py
 │               ├── bindingbd_api.py
 │               ├── chembl_api.py
+│               ├── iuphar_api.py
 │               ├── mappings.py
 │               └── pubchem_api.py
 ├── tests/

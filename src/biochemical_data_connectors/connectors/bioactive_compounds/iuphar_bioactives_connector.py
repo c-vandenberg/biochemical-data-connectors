@@ -15,7 +15,7 @@ from biochemical_data_connectors.utils.files_utils import get_cached_or_fetch
 from biochemical_data_connectors.utils.standardization_utils import convert_p_value_to_nm
 
 
-class IUPHARBioactivesConnector(BaseBioactivesConnector):
+class IupharBioactivesConnector(BaseBioactivesConnector):
     """
     Extracts and processes bioactive compounds from IUPHAR/BPS Guide to PHARMACOLOGY.
 
