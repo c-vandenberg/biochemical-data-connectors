@@ -16,6 +16,18 @@ from biochemical_data_connectors.utils.standardization_utils import convert_p_va
 
 
 class IUPHARBioactivesConnector(BaseBioactivesConnector):
+    """
+    Extracts and processes bioactive compounds from IUPHAR/BPS Guide to PHARMACOLOGY.
+
+    This connector orchestrates the fetching of data for a given UniProt ID,
+    groups all measurements for each unique compound, calculates statistics,
+    and returns a standardized list of `BioactiveCompound` objects.
+
+    Attributes
+    ----------
+    _iuphar_api_client : IupharApiClient
+        An instance of the client used to handle all direct API communications.
+    """
     def __init__(
         self,
         bioactivity_measures: List[str],
@@ -36,7 +48,33 @@ class IUPHARBioactivesConnector(BaseBioactivesConnector):
         target_uniprot_id: str,
         force_refresh: bool = False
     ) -> List[BioactiveCompound]:
-        # 1. Query for the target ID by UniProt ID.
+        """
+        Retrieve and process bioactive compound data for a target from IUPHAR/BPS.
+
+        This method orchestrates the entire workflow:
+        1. Converts the UniProt ID to an internal IUPHAR/BPS Target ID.
+        2. Fetches all relevant interaction records from the API, using a cache
+           to improve performance on subsequent runs.
+        3. Groups all records by their unique ligand ID.
+        4. For each compound, converts p-values to nM and calculates statistics
+           (count, mean, etc.) for the activity values.
+        5. Creates a standardized `BioactiveCompound` object containing the
+           aggregated data and RDKit-calculated properties.
+        6. Applies the optional potency filter to the final list.
+
+        Parameters
+        ----------
+        target_uniprot_id : str
+            The UniProt accession for the target (e.g., "P00533").
+        force_refresh : bool, optional
+            If True, ignores any existing cache and forces a new API call.
+
+        Returns
+        -------
+        List[BioactiveCompound]
+            A list of fully populated and standardized BioactiveCompound objects.
+        """
+        # 1. Get IUPHAR Target ID for the given UniProt ID.
         iuphar_target_id: int = self._iuphar_api_client.get_iuphar_target_id(uniprot_id=target_uniprot_id)
         if iuphar_target_id is None:
             self._logger.error(f"No matching IUPHAR-BPS target found for UniProt ID {target_uniprot_id}")
@@ -59,7 +97,7 @@ class IUPHARBioactivesConnector(BaseBioactivesConnector):
             logger=self._logger
         )
 
-        # 3. Group all activity records by ligand ID
+        # 3. Group all activity records by ligand ID to aggregate measurements.
         grouped_by_compound = defaultdict(list)
         for record in all_iuphar_activity_records:
             ligand_id = record.get('ligandId')
@@ -72,21 +110,19 @@ class IUPHARBioactivesConnector(BaseBioactivesConnector):
             first_record = records[0]
 
             # 4.1. Collect all valid, numeric affinity values for this compound.
-            #      The BindingDB API returns values in nM, so no conversion is needed.
             final_values = []
             p_measure = first_record.get('affinityParameter')
-            final_measure_type = p_measure.replace(p_measure[0], '', 1)
+            final_measure_type = p_measure[1:] if p_measure and p_measure.startswith('p') else p_measure
             for record in records:
                 try:
-                    value = round(convert_p_value_to_nm(float(record.get('affinity'))), 2)
-                    final_values.append(value)
+                    final_values.append(round(convert_p_value_to_nm(float(record.get('affinity'))), 2))
                 except (ValueError, TypeError):
                     continue
 
             if not final_values:
                 continue
 
-            # 4.2. Calculate bioassay data statistics
+            # 4.2. Calculate bioassay data statistics on the converted nM values.
             count = len(final_values)
             stats = {
                 "activity_type": final_measure_type,
@@ -97,9 +133,7 @@ class IUPHARBioactivesConnector(BaseBioactivesConnector):
                 "std_dev_activity": round(statistics.stdev(final_values), 2) if count > 1 else 0.0,
             }
 
-            # 4.3. BindingDB response doesn't provide InCHIKey, molecular formula, or molecular weight.
-            #      Use RDKit to calculate these for consistency and create final BioactiveCompound object.
-            #      N.B. The API call already filtered by threshold, so we don't need to filter again.
+            # 4.3. Fetch molecular data and create the final BioactiveCompound object.
             mol_data = self._iuphar_api_client.get_mol_data_from_ligand_id(ligand_id=ligand_id)
             if not mol_data.get('smiles'):
                 continue
@@ -123,6 +157,7 @@ class IUPHARBioactivesConnector(BaseBioactivesConnector):
             )
             all_bioactives.append(compound_obj)
 
+        # 5. Filter final list by potency if a threshold was provided.
         if self._bioactivity_threshold is not None:
             self._logger.info(
                 f"Filtering {len(all_bioactives)} IUPHAR/BPS compounds with threshold: <= {self._bioactivity_threshold} nM"

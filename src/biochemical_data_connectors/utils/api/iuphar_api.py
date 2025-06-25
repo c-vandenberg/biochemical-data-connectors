@@ -12,6 +12,22 @@ class IupharApiClient(BaseApiClient):
         self._logger = logger if logger else logging.getLogger(__name__)
 
     def get_iuphar_target_id(self, uniprot_id: str) -> Optional[int]:
+        """
+        Queries the IUPHAR/BPS API for the internal target ID.
+
+        Maps a UniProt accession ID to the corresponding internal database ID
+        used by the Guide to PHARMACOLOGY.
+
+        Parameters
+        ----------
+        uniprot_id : str
+            The UniProt accession ID of the target.
+
+        Returns
+        -------
+        Optional[int]
+            The internal integer target ID if found, otherwise None.
+        """
         iuphar_target_query_start = time.time()
         iuphar_target_url = f'https://www.guidetopharmacology.org/services/targets?accession={uniprot_id}'
         self._logger.info(f"Querying IUPHAR/BPS Guide to Pharmacology API for Uniprot {uniprot_id} target ID")
@@ -40,8 +56,7 @@ class IupharApiClient(BaseApiClient):
         p_bioactivity_measures: List[str],
     ) -> List[Any]:
         """
-        Queries IUPHAR/BPS Guide to PHARMACOLOGY for interactions and returns
-        standardized data.
+        Queries IUPHAR/BPS API for interactions and returns standardized data.
 
         This method fetches interactions for a target, filtering by the desired
         p-value activity types at the API level.
@@ -97,6 +112,22 @@ class IupharApiClient(BaseApiClient):
 
 
     def get_mol_data_from_ligand_id(self, ligand_id: str) -> Dict:
+        """
+        Fetches structural and property data for a given IUPHAR ligand ID.
+
+        This method makes two separate API calls to retrieve structure (SMILES, etc.)
+        and molecular properties (molecular weight) and combines them.
+
+        Parameters
+        ----------
+        ligand_id : str
+            The internal IUPHAR/BPS ligand ID.
+
+        Returns
+        -------
+        Dict[str, Any]
+            A dictionary containing the combined molecular data.
+        """
         iuphar_ligand_structure_url = f'https://www.guidetopharmacology.org/services/ligands/{ligand_id}/structure'
         iuphar_ligand_mol_props_url = f'https://www.guidetopharmacology.org/services/ligands/{ligand_id}/molecularProperties'
         mol_data: Dict = {}
