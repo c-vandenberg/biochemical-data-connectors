@@ -4,6 +4,7 @@ import requests
 from typing import Dict, Any, Optional, List
 
 from biochemical_data_connectors.utils.api.base_api import BaseApiClient
+from biochemical_data_connectors.constants import RestApiEndpoints
 
 
 class IupharApiClient(BaseApiClient):
@@ -29,7 +30,9 @@ class IupharApiClient(BaseApiClient):
             The internal integer target ID if found, otherwise None.
         """
         iuphar_target_query_start = time.time()
-        iuphar_target_url = f'https://www.guidetopharmacology.org/services/targets?accession={uniprot_id}'
+        iuphar_target_url = RestApiEndpoints.IUPHAR_TARGET_ID_FROM_UNIPROT.url(
+            uniprot_id=uniprot_id
+        )
         self._logger.info(f"Querying IUPHAR/BPS Guide to Pharmacology API for Uniprot {uniprot_id} target ID")
         try:
             response = self._session.get(iuphar_target_url, timeout=15)
@@ -81,8 +84,10 @@ class IupharApiClient(BaseApiClient):
             self._logger.info(f"Querying IUPHAR/BPS for {p_measure} data for target ID {target_id}...")
 
             # 2. Build the URL with the affinityType filter.
-            iuphar_interactions_url = \
-                f"https://www.guidetopharmacology.org/services/targets/{target_id}/interactions?affinityType={p_measure}"
+            iuphar_interactions_url = RestApiEndpoints.IUPHAR_INTERACTIONS_FROM_TARGET_ID_FILTERED.url(
+                target_id=target_id,
+                p_measure=p_measure
+            )
             try:
                 response = self._session.get(iuphar_interactions_url, timeout=15)
                 response.raise_for_status()
@@ -128,8 +133,12 @@ class IupharApiClient(BaseApiClient):
         Dict[str, Any]
             A dictionary containing the combined molecular data.
         """
-        iuphar_ligand_structure_url = f'https://www.guidetopharmacology.org/services/ligands/{ligand_id}/structure'
-        iuphar_ligand_mol_props_url = f'https://www.guidetopharmacology.org/services/ligands/{ligand_id}/molecularProperties'
+        iuphar_ligand_structure_url = RestApiEndpoints.IUPHAR_LIGAND_STRUCTURE_FROM_LIGAND_ID.url(
+            ligand_id=ligand_id
+        )
+        iuphar_ligand_mol_props_url = RestApiEndpoints.IUPHAR_LIGAND_MOLECULAR_PROPERTIES_FROM_LIGAND_ID.url(
+            ligand_id=ligand_id
+        )
         mol_data: Dict = {}
         try:
             response = self._session.get(iuphar_ligand_structure_url, timeout=15)

@@ -40,6 +40,22 @@ class RestApiEndpoints(Enum):
         "https://bindingdb.org/rest/getLigandsByUniprot?uniprot={uniprot_id}{cutoff_str}&response=application/json"
     )
 
+    IUPHAR_TARGET_ID_FROM_UNIPROT = (
+        "https://www.guidetopharmacology.org/services/targets?accession={uniprot_id}"
+    )
+
+    IUPHAR_INTERACTIONS_FROM_TARGET_ID_FILTERED = (
+        "https://www.guidetopharmacology.org/services/targets/{target_id}/interactions?affinityType={p_measure}"
+    )
+
+    IUPHAR_LIGAND_STRUCTURE_FROM_LIGAND_ID = (
+        "https://www.guidetopharmacology.org/services/ligands/{ligand_id}/structure"
+    )
+
+    IUPHAR_LIGAND_MOLECULAR_PROPERTIES_FROM_LIGAND_ID = (
+        "https://www.guidetopharmacology.org/services/ligands/{ligand_id}/molecularProperties"
+    )
+
     def url(self, **kwargs) -> str:
         """
         Return the fully‐qualified URL, substituting any placeholders
