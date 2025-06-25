@@ -38,40 +38,40 @@ class ChemblApiClient(BaseApiClient):
             A list of dictionary objects, where each dictionary is a full
             activity record from the ChEMBL API.
         """
-        # 1) Initialize a list to store all fetched records and start the timer.
+        # 1. Initialize a list to store all fetched records and start the timer.
         chembl_start = time.time()
         all_records = []
 
-        # 2) Build the base parameters for ChEMBL REST API.
+        # 2. Build the base parameters for ChEMBL REST API.
         #    The '__in' suffix allows filtering by multiple standard_type values.
         params = {
             "target_chembl_id": target_chembl_id,
             "standard_type__in": ",".join(activity_types),
         }
 
-        # 3) Set up variables for paginating through the API results.
+        # 3. Set up variables for paginating through the API results.
         limit = 1000 # Number of records to fetch per page
         offset = 0 # Starting point for the record set
         chembl_activity_url = RestApiEndpoints.CHEMBL_ACTIVITY.url()
 
-        # 4) Loop continuously to fetch all pages of data until no more records are returned.
+        # 4. Loop continuously to fetch all pages of data until no more records are returned.
         while True:
-            # 4.1) Set the parameters for the current page, including limit and offset.
+            # 4.1. Set the parameters for the current page, including limit and offset.
             page_params = {
                 **params,
                 "limit": limit,
                 "offset": offset
             }
             try:
-                # 4.2) Make the GET request using the persistent session.
+                # 4.2. Make the GET request using the persistent session.
                 response = self._session.get(chembl_activity_url, params=page_params, timeout=15)
                 response.raise_for_status()
                 data = response.json()
 
-                # 4.3) Parse the JSON response and extract the list of activities.
+                # 4.3. Parse the JSON response and extract the list of activities.
                 records = data.get('activities', [])
 
-                # 4.4) If no records are returned, it's the last page, so break the loop.
+                # 4.4. If no records are returned, it's the last page, so break the loop.
                 #      Otherwise, add the fetched records and increment the offset to get
                 #      the next page in the iteration.
                 if not records:
