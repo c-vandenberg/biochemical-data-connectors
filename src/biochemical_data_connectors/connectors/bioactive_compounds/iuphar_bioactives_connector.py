@@ -9,7 +9,7 @@ from rdkit.Chem import Descriptors
 from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
 from biochemical_data_connectors.connectors.bioactive_compounds.base_bioactives_connector import BaseBioactivesConnector
-from biochemical_data_connectors.utils.api.iuphar_api import IUPHARAPIClient
+from biochemical_data_connectors.utils.api.iuphar_api import IupharApiClient
 from biochemical_data_connectors.models import BioactiveCompound
 from biochemical_data_connectors.utils.files_utils import get_cached_or_fetch
 from biochemical_data_connectors.utils.standardization_utils import convert_p_value_to_nm
@@ -29,7 +29,7 @@ class IUPHARBioactivesConnector(BaseBioactivesConnector):
             cache_dir=cache_dir,
             logger=logger
         )
-        self._iuphar_api_client = IUPHARAPIClient(logger=logger)
+        self._iuphar_api_client = IupharApiClient(logger=logger)
 
     def get_bioactive_compounds(
         self,

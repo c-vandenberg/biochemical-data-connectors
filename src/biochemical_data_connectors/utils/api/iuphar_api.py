@@ -3,10 +3,10 @@ import time
 import requests
 from typing import Dict, Any, Optional, List
 
-from biochemical_data_connectors.utils.api.base_api import BaseAPIClient
+from biochemical_data_connectors.utils.api.base_api import BaseApiClient
 
 
-class IUPHARAPIClient(BaseAPIClient):
+class IupharApiClient(BaseApiClient):
     def __init__(self, logger: Optional[logging.Logger] = None):
         super().__init__()
         self._logger = logger if logger else logging.getLogger(__name__)

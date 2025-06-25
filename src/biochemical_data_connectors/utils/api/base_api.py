@@ -4,7 +4,7 @@ from requests.adapters import HTTPAdapter, Retry
 from typing import Optional
 
 
-class BaseAPIClient:
+class BaseApiClient:
     """
     A base client for API interactions with a persistent, robust session.
 

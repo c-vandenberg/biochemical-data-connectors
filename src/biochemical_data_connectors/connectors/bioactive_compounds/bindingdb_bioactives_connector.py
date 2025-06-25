@@ -8,13 +8,13 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
-from biochemical_data_connectors.utils.api.bindingdb_api import BindingDBAPIClient
+from biochemical_data_connectors.utils.api.bindingdb_api import BindingDbApiClient
 from biochemical_data_connectors.models import BioactiveCompound
 from biochemical_data_connectors.connectors.bioactive_compounds.base_bioactives_connector import BaseBioactivesConnector
 from biochemical_data_connectors.utils.files_utils import get_cached_or_fetch
 
 
-class BindingDBBioactivesConnector(BaseBioactivesConnector):
+class BindingDbBioactivesConnector(BaseBioactivesConnector):
     """
     Extracts and processes bioactive compounds from BindingDB.
 
@@ -24,7 +24,7 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
 
     Attributes
     ----------
-    _bdb_api_client : BindingDBAPIClient
+    _bdb_api_client : BindingDbApiClient
         An instance of the client used to handle all direct API communications.
     """
     def __init__(
@@ -40,7 +40,7 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
             cache_dir=cache_dir,
             logger=logger
         )
-        self._bdb_api_client = BindingDBAPIClient(logger=self._logger)
+        self._bdb_api_client = BindingDbApiClient(logger=self._logger)
 
     def get_bioactive_compounds(
         self,

@@ -6,12 +6,12 @@ from typing import List, Dict, Any, Optional
 
 import pubchempy as pcp
 
-from biochemical_data_connectors.utils.api.base_api import BaseAPIClient
+from biochemical_data_connectors.utils.api.base_api import BaseApiClient
 from biochemical_data_connectors.constants import RestApiEndpoints, CONVERSION_FACTORS_TO_NM
 from biochemical_data_connectors.utils.iter_utils import batch_iterable
 
 
-class PubChemAPIClient(BaseAPIClient):
+class PubChemApiClient(BaseApiClient):
     """
     A client for interacting with the PubChem API.
 

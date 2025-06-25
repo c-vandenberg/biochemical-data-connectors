@@ -12,13 +12,13 @@ from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 from biochemical_data_connectors.connectors.bioactive_compounds.base_bioactives_connector import BaseBioactivesConnector
 from biochemical_data_connectors.constants import CONVERSION_FACTORS_TO_NM
 from biochemical_data_connectors.models import BioactiveCompound
-from biochemical_data_connectors.utils.api.chembl_api import ChEMBLAPIClient
+from biochemical_data_connectors.utils.api.chembl_api import ChemblApiClient
 from biochemical_data_connectors.utils.files_utils import get_cached_or_fetch
 
 CHEMBL_INVALID_DATA_COMMENT = 'OUTSIDE TYPICAL RANGE'
 
 
-class ChEMBLBioactivesConnector(BaseBioactivesConnector):
+class ChemblBioactivesConnector(BaseBioactivesConnector):
     """
     Extracts bioactive compounds from ChEMBL using a target's UniProt accession.
 
@@ -31,7 +31,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
     ----------
     _chembl_webresource_client : object
         A client for the high-level ChEMBL API, used for target lookups.
-    _chembl_api_client : ChEMBLAPIClient
+    _chembl_api_client : ChemblApiClient
         A client for the low-level ChEMBL REST API, used for activity fetching.
     """
 
@@ -50,7 +50,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             logger=logger
         )
         self._chembl_webresource_client = core_chembl_client if core_chembl_client else new_client
-        self._chembl_api_client: ChEMBLAPIClient = ChEMBLAPIClient(logger=self._logger)
+        self._chembl_api_client: ChemblApiClient = ChemblApiClient(logger=self._logger)
 
     def get_bioactive_compounds(
         self,

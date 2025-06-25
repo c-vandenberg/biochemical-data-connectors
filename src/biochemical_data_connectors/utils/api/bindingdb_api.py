@@ -3,11 +3,11 @@ import requests
 import logging
 from typing import List, Optional, Any
 
-from biochemical_data_connectors.utils.api.base_api import BaseAPIClient
+from biochemical_data_connectors.utils.api.base_api import BaseApiClient
 from biochemical_data_connectors.constants import RestApiEndpoints
 
 
-class BindingDBAPIClient(BaseAPIClient):
+class BindingDbApiClient(BaseApiClient):
     """
     A client for interacting with the BindingDB REST API.
 

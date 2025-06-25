@@ -13,7 +13,7 @@ from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 from biochemical_data_connectors.connectors.bioactive_compounds.base_bioactives_connector import BaseBioactivesConnector
 from biochemical_data_connectors.models import BioactiveCompound
 from biochemical_data_connectors.utils.iter_utils import batch_iterable
-from biochemical_data_connectors.utils.api.pubchem_api import PubChemAPIClient, get_compounds_in_batches
+from biochemical_data_connectors.utils.api.pubchem_api import PubChemApiClient, get_compounds_in_batches
 from biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping
 from biochemical_data_connectors.utils.files_utils import get_cached_or_fetch
 
@@ -30,7 +30,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
     Attributes
     ----------
-    _api_client : PubChemAPIClient
+    _api_client : PubChemApiClient
         An instance of the client used to handle all direct API communications.
     """
     def __init__(
@@ -46,7 +46,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             cache_dir=cache_dir,
             logger=logger
         )
-        self._api_client = PubChemAPIClient(logger=self._logger)
+        self._api_client = PubChemApiClient(logger=self._logger)
 
     def get_bioactive_compounds(
         self,
