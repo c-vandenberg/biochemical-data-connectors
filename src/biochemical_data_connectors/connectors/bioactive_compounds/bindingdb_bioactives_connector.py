@@ -8,13 +8,13 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
-from biochemical_data_connectors.utils.api.bindingdb_api import BindingDBAPIClient
+from biochemical_data_connectors.utils.api.bindingdb_api import BindingDbApiClient
 from biochemical_data_connectors.models import BioactiveCompound
 from biochemical_data_connectors.connectors.bioactive_compounds.base_bioactives_connector import BaseBioactivesConnector
 from biochemical_data_connectors.utils.files_utils import get_cached_or_fetch
 
 
-class BindingDBBioactivesConnector(BaseBioactivesConnector):
+class BindingDbBioactivesConnector(BaseBioactivesConnector):
     """
     Extracts and processes bioactive compounds from BindingDB.
 
@@ -24,7 +24,7 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
 
     Attributes
     ----------
-    _bdb_api_client : BindingDBAPIClient
+    _bdb_api_client : BindingDbApiClient
         An instance of the client used to handle all direct API communications.
     """
     def __init__(
@@ -40,7 +40,7 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
             cache_dir=cache_dir,
             logger=logger
         )
-        self._bdb_api_client = BindingDBAPIClient(logger=self._logger)
+        self._bdb_api_client = BindingDbApiClient(logger=self._logger)
 
     def get_bioactive_compounds(
         self,
@@ -70,14 +70,14 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
         List[BioactiveCompound]
             A list of fully populated and standardized BioactiveCompound objects.
         """
-        # 1) Fetch all activity records for this target, using the cache if available.
+        # 1. Fetch all activity records for this target, using the cache if available.
         os.makedirs(self._cache_dir, exist_ok=True)
         bdb_activities_cache_file = os.path.join(self._cache_dir, f"bindingdb/{target_uniprot_id}.json")
 
         self._logger.info(f"Fetching/loading all BindingDB activities for Uniprot ID {target_uniprot_id}...")
         all_bdb_activity_records = get_cached_or_fetch(
             cache_file_path=bdb_activities_cache_file,
-            fetch_function=lambda: self._bdb_api_client.get_actives_from_target(
+        fetch_function=lambda: self._bdb_api_client.get_actives_from_target_uniprot(
                 uniprot_id=target_uniprot_id,
                 bioactivity_measures=self._bioactivity_measures,
                 bioactivity_threshold=self._bioactivity_threshold
@@ -90,19 +90,19 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
         if not all_bdb_activity_records:
             return []
 
-        # 2) Group all activity records by BindingDB monomer ID
+        # 2. Group all activity records by BindingDB monomer ID
         grouped_by_compound = defaultdict(list)
         for record in all_bdb_activity_records:
             monomer_id = record.get('bdb.monomerid')
             if monomer_id:
                 grouped_by_compound[monomer_id].append(record)
 
-        # 3) Process each unique compound to calculate stats and create a final object.
+        # 3. Process each unique compound to calculate stats and create a final object.
         all_bioactives: List[BioactiveCompound] = []
         for monomer_id, records in grouped_by_compound.items():
             first_record = records[0]
 
-            # 3.1) Collect all valid, numeric affinity values for this compound.
+            # 3.1. Collect all valid, numeric affinity values for this compound.
             #      The BindingDB API returns values in nM, so no conversion is needed.
             final_values = []
             final_measure_type = first_record.get('bdb.affinity_type')
@@ -116,7 +116,7 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
             if not final_values:
                 continue
 
-            # 3.2) Calculate bioassay data statistics
+            # 3.2. Calculate bioassay data statistics
             count = len(final_values)
             stats = {
                 "activity_type": final_measure_type,
@@ -127,7 +127,7 @@ class BindingDBBioactivesConnector(BaseBioactivesConnector):
                 "std_dev_activity": round(statistics.stdev(final_values), 2) if count > 1 else 0.0,
             }
 
-            # 3.3) BindingDB response doesn't provide InCHIKey, molecular formula, or molecular weight.
+            # 3.3. BindingDB response doesn't provide InCHIKey, molecular formula, or molecular weight.
             #      Use RDKit to calculate these for consistency and create final BioactiveCompound object.
             #      N.B. The API call already filtered by threshold, so we don't need to filter again.
             mol = Chem.MolFromSmiles(first_record.get('bdb.smile'))

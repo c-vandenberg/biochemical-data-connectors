@@ -3,8 +3,9 @@ BiochemicalDataConnectors: A Python package to extract chemical
 and biochemical from public databases.
 """
 from biochemical_data_connectors.connectors.bioactive_compounds.base_bioactives_connector import BaseBioactivesConnector
-from biochemical_data_connectors.connectors.bioactive_compounds.bindingdb_bioactives_connector import BindingDBBioactivesConnector
-from biochemical_data_connectors.connectors.bioactive_compounds.chembl_bioactives_connector import ChEMBLBioactivesConnector
+from biochemical_data_connectors.connectors.bioactive_compounds.bindingdb_bioactives_connector import BindingDbBioactivesConnector
+from biochemical_data_connectors.connectors.bioactive_compounds.chembl_bioactives_connector import ChemblBioactivesConnector
+from biochemical_data_connectors.connectors.bioactive_compounds.iuphar_bioactives_connector import IupharBioactivesConnector
 from biochemical_data_connectors.connectors.bioactive_compounds.pubchem_bioactives_connector import PubChemBioactivesConnector
 from biochemical_data_connectors.connectors.ord_connectors import OpenReactionDatabaseConnector
 from biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping, pdb_to_uniprot_id_mapping
@@ -15,8 +16,9 @@ __all__ = [
     "BaseBioactivesConnector",
 
     # --- Concrete Connectors / Extractors ---
-    "BindingDBBioactivesConnector",
-    "ChEMBLBioactivesConnector",
+    "BindingDbBioactivesConnector",
+    "ChemblBioactivesConnector",
+    "IupharBioactivesConnector",
     "PubChemBioactivesConnector",
     "OpenReactionDatabaseConnector",
 

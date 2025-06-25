@@ -13,7 +13,7 @@ from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 from biochemical_data_connectors.connectors.bioactive_compounds.base_bioactives_connector import BaseBioactivesConnector
 from biochemical_data_connectors.models import BioactiveCompound
 from biochemical_data_connectors.utils.iter_utils import batch_iterable
-from biochemical_data_connectors.utils.api.pubchem_api import PubChemAPIClient, get_compounds_in_batches
+from biochemical_data_connectors.utils.api.pubchem_api import PubChemApiClient, get_compounds_in_batches
 from biochemical_data_connectors.utils.api.mappings import uniprot_to_gene_id_mapping
 from biochemical_data_connectors.utils.files_utils import get_cached_or_fetch
 
@@ -30,7 +30,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
     Attributes
     ----------
-    _api_client : PubChemAPIClient
+    _api_client : PubChemApiClient
         An instance of the client used to handle all direct API communications.
     """
     def __init__(
@@ -46,7 +46,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             cache_dir=cache_dir,
             logger=logger
         )
-        self._api_client = PubChemAPIClient(logger=self._logger)
+        self._api_client = PubChemApiClient(logger=self._logger)
 
     def get_bioactive_compounds(
         self,
@@ -83,13 +83,13 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         List[BioactiveCompound]
             A list of standardized BioactiveCompound objects
         """
-        # 1) Map the UniProt accession to an NCBI GeneID.
+        # 1. Map the UniProt accession to an NCBI GeneID.
         target_gene_id = self._lookup_target_gene_id(target_uniprot_id)
         if not target_gene_id:
             self._logger.error(f"Could not determine GeneID for target '{target_uniprot_id}'.")
             return []
 
-        # 2) Fetch Assay ID (AID) list using PubChem API, or load from cache
+        # 2. Fetch Assay ID (AID) list using PubChem API, or load from cache
         os.makedirs(self._cache_dir, exist_ok=True)
         aids_cache_file = os.path.join(self._cache_dir, f"pubchem/{target_gene_id}_aids.json")
         aid_list = get_cached_or_fetch(
@@ -104,7 +104,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             self._logger.warning(f"No assay IDs (AIDs) found for GeneID {target_gene_id}.")
             return []
 
-        # 3) Fetch active compound IDs (CIDs) for each assay using PubChem API, or load from cache.
+        # 3. Fetch active compound IDs (CIDs) for each assay using PubChem API, or load from cache.
         cids_cache_file = os.path.join(self._cache_dir, f"pubchem/{target_gene_id}_cids.json")
         active_cids_list = get_cached_or_fetch(
             cache_file_path=cids_cache_file,
@@ -118,7 +118,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             self._logger.error(f"No active compounds found for GeneID {target_gene_id}.")
             return []
 
-        # 4) Fetch full `pubchempy.Compound` objects for all CIDs using PubChem API, or load from cache.
+        # 4. Fetch full `pubchempy.Compound` objects for all CIDs using PubChem API, or load from cache.
         pubchempy_compound_api_start: float = time.time()
         pubchempy_compound_cache_file = os.path.join(
             self._cache_dir,
@@ -136,7 +136,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         self._logger.info(f'PubChem bioactive compounds from CIDs total API query time: '
                           f'{round(pubchempy_compound_api_end - pubchempy_compound_api_start)} seconds')
 
-        # 5) Fetch bioassay data for all `pubchempy.Compound` compounds using PubChem API, or load from cache.
+        # 5. Fetch bioassay data for all `pubchempy.Compound` compounds using PubChem API, or load from cache.
         bioassay_cache_file = os.path.join(
             self._cache_dir,
             f"pubchem/{target_gene_id}_cid_bioassay_map.json"
@@ -152,7 +152,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             logger=self._logger
         )
 
-        # 6) Create the final list of `BioactiveCompound` objects, using cache if available.
+        # 6. Create the final list of `BioactiveCompound` objects, using cache if available.
         bioactivecompound_cache_file = os.path.join(
             self._cache_dir,
             f"pubchem/{target_gene_id}_unfiltered_bioactivecompounds.pkl"
@@ -170,14 +170,14 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             logger=self._logger
         )
 
-        # 7) Filter final list of `BioactiveCompound` objects by potency if threshold is provided.
+        # 7. Filter final list of `BioactiveCompound` objects by potency if threshold is provided.
         if self._bioactivity_threshold is not None:
-            self._logger.info(f"Filtering {len(all_bioactives)} compounds with threshold: "
+            self._logger.info(f"Filtering {len(all_bioactives)} PubChem compounds with threshold: "
                               f"<= {self._bioactivity_threshold} nM")
             filtered_bioactives: List[BioactiveCompound] = [
                 compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
             ]
-            self._logger.info(f"Found {len(filtered_bioactives)} compounds after filtering.")
+            self._logger.info(f"Found {len(filtered_bioactives)} PubChem compounds after filtering.")
 
             return filtered_bioactives
 

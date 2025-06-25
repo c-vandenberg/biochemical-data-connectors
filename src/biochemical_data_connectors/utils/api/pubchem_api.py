@@ -6,12 +6,12 @@ from typing import List, Dict, Any, Optional
 
 import pubchempy as pcp
 
-from biochemical_data_connectors.utils.api.base_api import BaseAPIClient
+from biochemical_data_connectors.utils.api.base_api import BaseApiClient
 from biochemical_data_connectors.constants import RestApiEndpoints, CONVERSION_FACTORS_TO_NM
 from biochemical_data_connectors.utils.iter_utils import batch_iterable
 
 
-class PubChemAPIClient(BaseAPIClient):
+class PubChemApiClient(BaseApiClient):
     """
     A client for interacting with the PubChem API.
 
@@ -143,12 +143,12 @@ class PubChemAPIClient(BaseAPIClient):
         - Activity data with unrecognized or unsupported units (e.g., '%', 'ppm')
           are logged and gracefully skipped.
         """
-        # 1) Throttle the request and build the API URL for the compound's assay summary.
+        # 1. Throttle the request and build the API URL for the compound's assay summary.
         time.sleep(0.1)
         cid = compound.cid
         assay_summary_url = RestApiEndpoints.PUBCHEM_ASSAY_SUMMARY_FROM_CID.url(cid=cid)
         try:
-            # 2) Make the API call and perform initial validation on the JSON response.
+            # 2. Make the API call and perform initial validation on the JSON response.
             response = self._session.get(assay_summary_url, timeout=10)
             response.raise_for_status()
             response_json = response.json()
@@ -162,7 +162,7 @@ class PubChemAPIClient(BaseAPIClient):
             if not response_columns or not response_rows:
                 return None
 
-            # 3) Defensively find the column indices for the data that needs to be extracted.
+            # 3. Defensively find the column indices for the data that needs to be extracted.
             try:
                 target_gene_idx = response_columns.index('Target GeneID')
                 activity_name_idx = response_columns.index('Activity Name')
@@ -186,7 +186,7 @@ class PubChemAPIClient(BaseAPIClient):
 
             grouped_activities = {measure.upper(): [] for measure in bioactivity_measures}
 
-            # 4) Iterate through all rows in the bioassay table to find and parse relevant data.
+            # 4. Iterate through all rows in the bioassay table to find and parse relevant data.
             for row in response_rows:
                 row_cell = row.get('Cell', [])
 
@@ -203,7 +203,7 @@ class PubChemAPIClient(BaseAPIClient):
                         target_gene_id) and row_activity_name_upper in grouped_activities.keys()):
                     continue
 
-                # 5) For each valid row, check the activity unit and convert the value to nM.
+                # 5. For each valid row, check the activity unit and convert the value to nM.
                 try:
                     value = float(row_cell[activity_value_idx])
                     unit_str = str(row_cell[activity_unit_idx]).upper() if unit_is_explicit else "UM"
@@ -217,7 +217,7 @@ class PubChemAPIClient(BaseAPIClient):
                 except (ValueError, TypeError):
                     continue
 
-            # 6) Find the highest-priority activity type that has data.
+            # 6. Find the highest-priority activity type that has data.
             final_measure_type = None
             final_values = []
             for measure in bioactivity_measures:
@@ -229,7 +229,7 @@ class PubChemAPIClient(BaseAPIClient):
             if not final_values:
                 return None
 
-            # 7) Calculate statistics on the final list of values.
+            # 7. Calculate statistics on the final list of values.
             count = len(final_values)
             return {
                 "activity_type": final_measure_type,
@@ -280,16 +280,16 @@ def get_compounds_in_batches(
     and that batch is skipped, allowing the function to continue with the
     remaining batches.
     """
-    # 1) Iterate through the provided CIDs in batches using the utility function.
+    # 1. Iterate through the provided CIDs in batches using the utility function.
     compounds = []
     for cid_batch in batch_iterable(cids, batch_size):
         try:
-            # 2) For each batch, call the pubchempy library to retrieve compound data.
+            # 2. For each batch, call the pubchempy library to retrieve compound data.
             #    pubchempy handles its own connection and retry logic.
             batch_compounds = pcp.get_compounds(cid_batch, 'cid')
             compounds.extend(batch_compounds)
         except Exception as e:
-            # 3) Handle any errors during the batch fetch to ensure the process can continue.
+            # 3. Handle any errors during the batch fetch to ensure the process can continue.
             message = f"Error retrieving compounds for batch {cid_batch}: {e}"
             if logger:
                 logger.error(message)

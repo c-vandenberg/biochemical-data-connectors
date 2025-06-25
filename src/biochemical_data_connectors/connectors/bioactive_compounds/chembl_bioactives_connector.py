@@ -12,13 +12,13 @@ from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 from biochemical_data_connectors.connectors.bioactive_compounds.base_bioactives_connector import BaseBioactivesConnector
 from biochemical_data_connectors.constants import CONVERSION_FACTORS_TO_NM
 from biochemical_data_connectors.models import BioactiveCompound
-from biochemical_data_connectors.utils.api.chembl_api import ChEMBLAPIClient
+from biochemical_data_connectors.utils.api.chembl_api import ChemblApiClient
 from biochemical_data_connectors.utils.files_utils import get_cached_or_fetch
 
 CHEMBL_INVALID_DATA_COMMENT = 'OUTSIDE TYPICAL RANGE'
 
 
-class ChEMBLBioactivesConnector(BaseBioactivesConnector):
+class ChemblBioactivesConnector(BaseBioactivesConnector):
     """
     Extracts bioactive compounds from ChEMBL using a target's UniProt accession.
 
@@ -31,7 +31,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
     ----------
     _chembl_webresource_client : object
         A client for the high-level ChEMBL API, used for target lookups.
-    _chembl_api_client : ChEMBLAPIClient
+    _chembl_api_client : ChemblApiClient
         A client for the low-level ChEMBL REST API, used for activity fetching.
     """
 
@@ -50,7 +50,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             logger=logger
         )
         self._chembl_webresource_client = core_chembl_client if core_chembl_client else new_client
-        self._chembl_api_client: ChEMBLAPIClient = ChEMBLAPIClient(logger=self._logger)
+        self._chembl_api_client: ChemblApiClient = ChemblApiClient(logger=self._logger)
 
     def get_bioactive_compounds(
         self,
@@ -87,7 +87,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         List[BioactiveCompound]
             A list of fully populated and standardized BioactiveCompound objects.
         """
-        # 1) Search for the target by UniProt ID and retrieve the first matching result
+        # 1. Search for the target by UniProt ID and retrieve the first matching result
         target_results = self._chembl_webresource_client.target.filter(target_components__accession=target_uniprot_id)
         if not target_results:
             self._logger.error(f"No matching target found for UniProt ID {target_uniprot_id}")
@@ -95,7 +95,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
 
         target_chembl_id = target_results[0]['target_chembl_id']
 
-        # 2) Fetch all activity records for this target, using the cache if available.
+        # 2. Fetch all activity records for this target, using the cache if available.
         os.makedirs(self._cache_dir, exist_ok=True)
         chembl_acitivites_cache_file = os.path.join(self._cache_dir, f"chembl/{target_chembl_id}_aids.json")
 
@@ -112,23 +112,23 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
         )
         self._logger.info(f"Found {len(all_activity_records)} total activity records.")
 
-        # 3) Group all activity records by compound ID
+        # 3. Group all activity records by compound ID
         grouped_by_compound = defaultdict(list)
         for record in all_activity_records:
             chembl_id = record.get('molecule_chembl_id')
             if chembl_id:
                 grouped_by_compound[chembl_id].append(record)
 
-        # 4) Process each unique compound to calculate stats and create final object
+        # 4. Process each unique compound to calculate stats and create final object
         all_bioactives: List[BioactiveCompound] = []
         for chembl_id, records in grouped_by_compound.items():
-            # 4.1) Find the first available canonical SMILES from all records for this compound.
+            # 4.1. Find the first available canonical SMILES from all records for this compound.
             #      If none found, skip this compound.
             canonical_smiles = next((r.get('canonical_smiles') for r in records if r.get('canonical_smiles')), None)
             if not canonical_smiles:
                 continue
 
-            # 4.2) Group this compound's activities by measure type, converting units to nM
+            # 4.2. Group this compound's activities by measure type, converting units to nM
             grouped_activities = defaultdict(list)
             for record in records:
                 data_validity_comment = record.get('data_validity_comment')
@@ -152,7 +152,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                     except (ValueError, TypeError):
                         continue
 
-            # 4.3) Find the highest-priority activity data for this compound.
+            # 4.3. Find the highest-priority activity data for this compound.
             final_measure_type = None
             final_values = []
             for measure in self._bioactivity_measures:
@@ -165,7 +165,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             if not final_values:
                 continue
 
-            # 4.4) Calculate bioassay data statistics
+            # 4.4. Calculate bioassay data statistics
             count = len(final_values)
             compound_bioassay_data = {
                 "activity_type": final_measure_type,
@@ -176,7 +176,7 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
                 "std_dev_activity": statistics.stdev(final_values) if count > 1 else 0.0,
             }
 
-            # 4.5) ChEMBL response doesn't provide InCHIKey, molecular formula, or molecular weight.
+            # 4.5. ChEMBL response doesn't provide InCHIKey, molecular formula, or molecular weight.
             #      Use RDKit to calculate these for consistency and create final BioactiveCompound object.
             mol = Chem.MolFromSmiles(canonical_smiles)
             if not mol:
@@ -196,15 +196,15 @@ class ChEMBLBioactivesConnector(BaseBioactivesConnector):
             )
             all_bioactives.append(compound_obj)
 
-        # 5) Filter the final list by the 'activity_value' if a threshold was provided.
+        # 5. Filter the final list by the 'activity_value' if a threshold was provided.
         if self._bioactivity_threshold is not None:
             self._logger.info(
-                f"Filtering {len(all_bioactives)} compounds with threshold: <= {self._bioactivity_threshold} nM"
+                f"Filtering {len(all_bioactives)} ChEMBL compounds with threshold: <= {self._bioactivity_threshold} nM"
             )
             filtered_bioactives = [
                 compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
             ]
-            self._logger.info(f"Found {len(filtered_bioactives)} compounds after filtering.")
+            self._logger.info(f"Found {len(filtered_bioactives)} ChEMBL compounds after filtering.")
 
             return filtered_bioactives
 
