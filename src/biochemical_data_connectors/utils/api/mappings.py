@@ -1,6 +1,6 @@
 import time
 import requests
-from typing import Optional
+from typing import Optional, List
 
 from biochemical_data_connectors.constants import RestApiEndpoints
 
@@ -25,7 +25,7 @@ def pdb_to_uniprot_id_mapping(pdb_id: str) -> Optional[str]:
     'P12345'
     """
     pdb_id = pdb_id.lower()
-    pdb_uniprot_mapping_url = RestApiEndpoints.PDB_ID_UNIPROT_MAPPING.url(pdb_id=pdb_id)
+    pdb_uniprot_mapping_url = RestApiEndpoints.PDB_UNIPROT_ID_MAPPING.url(pdb_id=pdb_id)
     try:
         mapping_response = requests.get(pdb_uniprot_mapping_url, timeout=10)
         mapping_response.raise_for_status()
@@ -40,6 +40,43 @@ def pdb_to_uniprot_id_mapping(pdb_id: str) -> Optional[str]:
         return next(iter(uniprot_mappings.keys()))
     except Exception as e:
         print(f'Error mapping PDB ID {pdb_id} to UniProt ID: {e}')
+        return None
+
+
+def uniprot_to_pdb_id_mapping(uniprot_id: str) -> Optional[List[str]]:
+    """
+    Maps a UniProt accession to a list of PDB IDs using the PDBe API.
+
+    Parameters
+    ----------
+    uniprot_id : str
+        The UniProt accession ID (e.g., "P00533").
+
+    Returns
+    -------
+    Optional[List[str]]
+        A list of PDB IDs corresponding to the UniProt accession,
+        or None if not found or an error occurs.
+    """
+    uniprot_id = uniprot_id.upper()
+    uniprot_pdb_mapping_url = RestApiEndpoints.UNIPROT_PDB_ID_MAPPING.url(uniprot_id=uniprot_id)
+
+    try:
+        response = requests.get(uniprot_pdb_mapping_url, timeout=10)
+        response.raise_for_status()
+        response_json = response.json()
+
+        if uniprot_id not in response_json:
+            return None
+
+        pdb_mappings = response_json[uniprot_id].get("PDB", {})
+        if not pdb_mappings:
+            return None
+
+        return list(pdb_mappings.keys())
+
+    except Exception as e:
+        print(f"Error mapping UniProt ID {uniprot_id} to PDB IDs: {e}")
         return None
 
 
