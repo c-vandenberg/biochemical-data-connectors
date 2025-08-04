@@ -77,14 +77,14 @@ class IupharBioactivesConnector(BaseBioactivesConnector):
         # 1. Get IUPHAR Target ID for the given UniProt ID.
         iuphar_target_id: int = self._iuphar_api_client.get_iuphar_target_id(uniprot_id=target_uniprot_id)
         if iuphar_target_id is None:
-            self._logger.error(f"No matching IUPHAR-BPS target found for UniProt ID {target_uniprot_id}")
+            self._logger.error(f'No matching IUPHAR-BPS target found for UniProt ID {target_uniprot_id}')
             return []
 
         # 2. Fetch all activity records for this target, using the cache if available.
         os.makedirs(self._cache_dir, exist_ok=True)
-        iuphar_activities_cache_file = os.path.join(self._cache_dir, f"IUPHAR-BPS/{iuphar_target_id}.json")
+        iuphar_activities_cache_file = os.path.join(self._cache_dir, f'IUPHAR-BPS/{iuphar_target_id}.json')
 
-        self._logger.info(f"Fetching/loading all IUPHAR-BPS activities for Uniprot ID {target_uniprot_id}...")
+        self._logger.info(f'Fetching/loading all IUPHAR-BPS activities for Uniprot ID {target_uniprot_id}...')
         p_activity_measures =  ['p' + measure for measure in self._bioactivity_measures]
         all_iuphar_activity_records = get_cached_or_fetch(
             cache_file_path=iuphar_activities_cache_file,
@@ -125,12 +125,12 @@ class IupharBioactivesConnector(BaseBioactivesConnector):
             # 4.2. Calculate bioassay data statistics on the converted nM values.
             count = len(final_values)
             stats = {
-                "activity_type": final_measure_type,
-                "activity_value": min(final_values),
-                "n_measurements": count,
-                "mean_activity": round(statistics.mean(final_values), 2) if count > 0 else None,
-                "median_activity": round(statistics.median(final_values), 2) if count > 0 else None,
-                "std_dev_activity": round(statistics.stdev(final_values), 2) if count > 1 else 0.0,
+                'activity_type': final_measure_type,
+                'activity_value': min(final_values),
+                'n_measurements': count,
+                'mean_activity': round(statistics.mean(final_values), 2) if count > 0 else None,
+                'median_activity': round(statistics.median(final_values), 2) if count > 0 else None,
+                'std_dev_activity': round(statistics.stdev(final_values), 2) if count > 1 else 0.0,
             }
 
             # 4.3. Fetch molecular data and create the final BioactiveCompound object.
@@ -143,7 +143,7 @@ class IupharBioactivesConnector(BaseBioactivesConnector):
                 continue
 
             compound_obj = BioactiveCompound(
-                source_db="IUPHAR/BPS Guide to PHARMACOLOGY",
+                source_db='IUPHAR/BPS Guide to PHARMACOLOGY',
                 source_id=ligand_id,
                 smiles=mol_data.get('smiles'),
                 target_uniprot=target_uniprot_id,
@@ -160,12 +160,12 @@ class IupharBioactivesConnector(BaseBioactivesConnector):
         # 5. Filter final list by potency if a threshold was provided.
         if self._bioactivity_threshold is not None:
             self._logger.info(
-                f"Filtering {len(all_bioactives)} IUPHAR/BPS compounds with threshold: <= {self._bioactivity_threshold} nM"
+                f'Filtering {len(all_bioactives)} IUPHAR/BPS compounds with threshold: <= {self._bioactivity_threshold} nM'
             )
             filtered_bioactives = [
                 compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
             ]
-            self._logger.info(f"Found {len(filtered_bioactives)} IUPHAR/BPS compounds after filtering.")
+            self._logger.info(f'Found {len(filtered_bioactives)} IUPHAR/BPS compounds after filtering.')
 
             return filtered_bioactives
 

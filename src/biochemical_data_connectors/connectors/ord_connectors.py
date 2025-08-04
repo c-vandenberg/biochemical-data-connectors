@@ -191,7 +191,7 @@ class OpenReactionDatabaseConnector:
             # 3. Reparse SMILES to Mol to strictly validate
             parsed = Chem.MolFromSmiles(raw_smiles)
             if parsed is None:
-                self._logger.error(f"Invalid SMILES after SMARTS -> SMILES conversion: {raw_smiles}")
+                self._logger.error(f'Invalid SMILES after SMARTS -> SMILES conversion: {raw_smiles}')
                 continue
 
             # 4. If valid, append final canonical SMILES to valid SMILES list
