@@ -49,12 +49,12 @@ class BindingDbApiClient(BaseApiClient):
         """
         bindingdb_start = time.time()
 
-        cutoff_str = f";{int(bioactivity_threshold)}" if bioactivity_threshold is not None else ""
+        cutoff_str = f';{int(bioactivity_threshold)}' if bioactivity_threshold is not None else ''
         url = RestApiEndpoints.BINDINGDB_LIGANDS_FROM_UNIPROT_ID.url(
             uniprot_id=uniprot_id,
             cutoff_str=cutoff_str
         )
-        self._logger.info(f"Querying BindingDB for target: {uniprot_id}")
+        self._logger.info(f'Querying BindingDB for target: {uniprot_id}')
         try:
             response = self._session.get(url)
             response.raise_for_status()
@@ -64,7 +64,7 @@ class BindingDbApiClient(BaseApiClient):
             bindingdb_end = time.time()
             self._logger.info(f'BindingDB total query time: {round(bindingdb_end - bindingdb_start)} seconds')
             if not bdb_affinities:
-                self._logger.warning(f"No BindingDB actives found for {uniprot_id}.")
+                self._logger.warning(f'No BindingDB actives found for {uniprot_id}.')
                 return []
 
             filtered_bdb_actives = [
@@ -74,6 +74,5 @@ class BindingDbApiClient(BaseApiClient):
             return filtered_bdb_actives
 
         except requests.exceptions.RequestException as e:
-            self._logger.error(f"Error querying BindingDB: {e}")
-
+            self._logger.error(f'Error querying BindingDB: {e}')
             return []

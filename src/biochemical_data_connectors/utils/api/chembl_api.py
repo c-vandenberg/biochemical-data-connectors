@@ -45,8 +45,8 @@ class ChemblApiClient(BaseApiClient):
         # 2. Build the base parameters for ChEMBL REST API.
         #    The '__in' suffix allows filtering by multiple standard_type values.
         params = {
-            "target_chembl_id": target_chembl_id,
-            "standard_type__in": ",".join(activity_types),
+            'target_chembl_id': target_chembl_id,
+            'standard_type__in': ','.join(activity_types),
         }
 
         # 3. Set up variables for paginating through the API results.
@@ -59,8 +59,8 @@ class ChemblApiClient(BaseApiClient):
             # 4.1. Set the parameters for the current page, including limit and offset.
             page_params = {
                 **params,
-                "limit": limit,
-                "offset": offset
+                'limit': limit,
+                'offset': offset
             }
             try:
                 # 4.2. Make the GET request using the persistent session.
@@ -79,7 +79,7 @@ class ChemblApiClient(BaseApiClient):
                 all_records.extend(records)
                 offset += limit
             except requests.exceptions.RequestException as e:
-                self._logger.error(f"ChEMBL API request failed for target {target_chembl_id}: {e}")
+                self._logger.error(f'ChEMBL API request failed for target {target_chembl_id}: {e}')
                 break
 
         chembl_end = time.time()

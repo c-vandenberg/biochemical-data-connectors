@@ -51,9 +51,9 @@ class PubChemApiClient(BaseApiClient):
             response.raise_for_status()
             data = response.json()
 
-            return data.get("IdentifierList", {}).get("AID", [])
+            return data.get('IdentifierList', {}).get('AID', [])
         except requests.exceptions.RequestException as e:
-            self._logger.error(f"API error retrieving AIDs for GeneID {target_gene_id}: {e}")
+            self._logger.error(f'API error retrieving AIDs for GeneID {target_gene_id}: {e}')
 
             return []
 
@@ -80,11 +80,11 @@ class PubChemApiClient(BaseApiClient):
             response = self._session.get(compound_id_url, timeout=10)
             response.raise_for_status()
             data = response.json()
-            info_list = data.get("InformationList", {}).get("Information", [])
+            info_list = data.get('InformationList', {}).get('Information', [])
             if info_list:
-                return info_list[0].get("CID", [])
+                return info_list[0].get('CID', [])
         except requests.exceptions.RequestException as e:
-            self._logger.error(f"API error processing assay {aid}: {e}")
+            self._logger.error(f'API error processing assay {aid}: {e}')
 
             return []
 
@@ -179,7 +179,7 @@ class PubChemApiClient(BaseApiClient):
                     activity_value_idx = response_columns.index('Activity Value [uM]')
                     activity_unit_idx = -1
                 else:
-                    self._logger.error(f"Could not find a valid activity value column in CID {cid} bioassay data")
+                    self._logger.error(f'Could not find a valid activity value column in CID {cid} bioassay data')
             except ValueError as e:
                 self._logger.error(f'Required column not found in CID {cid} bioassay data: {e}')
                 return None
@@ -213,7 +213,7 @@ class PubChemApiClient(BaseApiClient):
                         value_nm = value * conversion_factor
                         grouped_activities[row_activity_name_upper].append(value_nm)
                     else:
-                        self._logger.debug(f"Skipping unsupported unit '{unit_str}' for CID {cid}")
+                        self._logger.debug(f'Skipping unsupported unit "{unit_str}" for CID {cid}')
                 except (ValueError, TypeError):
                     continue
 
@@ -232,16 +232,16 @@ class PubChemApiClient(BaseApiClient):
             # 7. Calculate statistics on the final list of values.
             count = len(final_values)
             return {
-                "activity_type": final_measure_type,
-                "best_value": min(final_values),
-                "n_measurements": count,
-                "mean_value": statistics.mean(final_values) if count > 0 else None,
-                "median_value": statistics.median(final_values) if count > 0 else None,
-                "std_dev_value": statistics.stdev(final_values) if count > 1 else 0.0,
+                'activity_type': final_measure_type,
+                'best_value': min(final_values),
+                'n_measurements': count,
+                'mean_value': statistics.mean(final_values) if count > 0 else None,
+                'median_value': statistics.median(final_values) if count > 0 else None,
+                'std_dev_value': statistics.stdev(final_values) if count > 1 else 0.0,
             }
 
         except requests.exceptions.RequestException as e:
-            self._logger.error(f"API error retrieving bioassay data for {cid}: {e}")
+            self._logger.error(f'API error retrieving bioassay data for {cid}: {e}')
 
             return None
 
@@ -290,7 +290,7 @@ def get_compounds_in_batches(
             compounds.extend(batch_compounds)
         except Exception as e:
             # 3. Handle any errors during the batch fetch to ensure the process can continue.
-            message = f"Error retrieving compounds for batch {cid_batch}: {e}"
+            message = f'Error retrieving compounds for batch {cid_batch}: {e}'
             if logger:
                 logger.error(message)
             else:

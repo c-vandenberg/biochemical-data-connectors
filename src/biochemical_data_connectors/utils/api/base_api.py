@@ -40,6 +40,6 @@ class BaseApiClient:
             status_forcelist=[429, 500, 502, 503, 504]
         )
         # Mount the retry strategy to the session for all HTTPS requests.
-        session.mount("https://", HTTPAdapter(max_retries=retries))
+        session.mount('https://', HTTPAdapter(max_retries=retries))
 
         return session

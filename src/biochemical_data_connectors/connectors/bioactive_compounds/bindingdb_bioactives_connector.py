@@ -72,9 +72,9 @@ class BindingDbBioactivesConnector(BaseBioactivesConnector):
         """
         # 1. Fetch all activity records for this target, using the cache if available.
         os.makedirs(self._cache_dir, exist_ok=True)
-        bdb_activities_cache_file = os.path.join(self._cache_dir, f"BindingDB/{target_uniprot_id}.json")
+        bdb_activities_cache_file = os.path.join(self._cache_dir, f'BindingDB/{target_uniprot_id}.json')
 
-        self._logger.info(f"Fetching/loading all BindingDB activities for Uniprot ID {target_uniprot_id}...")
+        self._logger.info(f'Fetching/loading all BindingDB activities for Uniprot ID {target_uniprot_id}...')
         all_bdb_activity_records = get_cached_or_fetch(
             cache_file_path=bdb_activities_cache_file,
         fetch_function=lambda: self._bdb_api_client.get_actives_from_target_uniprot(
@@ -119,12 +119,12 @@ class BindingDbBioactivesConnector(BaseBioactivesConnector):
             # 3.2. Calculate bioassay data statistics
             count = len(final_values)
             stats = {
-                "activity_type": final_measure_type,
-                "activity_value": min(final_values),
-                "n_measurements": count,
-                "mean_activity": round(statistics.mean(final_values), 2) if count > 0 else None,
-                "median_activity": round(statistics.median(final_values), 2) if count > 0 else None,
-                "std_dev_activity": round(statistics.stdev(final_values), 2) if count > 1 else 0.0,
+                'activity_type': final_measure_type,
+                'activity_value': min(final_values),
+                'n_measurements': count,
+                'mean_activity': round(statistics.mean(final_values), 2) if count > 0 else None,
+                'median_activity': round(statistics.median(final_values), 2) if count > 0 else None,
+                'std_dev_activity': round(statistics.stdev(final_values), 2) if count > 1 else 0.0,
             }
 
             # 3.3. BindingDB response doesn't provide InCHIKey, molecular formula, or molecular weight.
@@ -135,7 +135,7 @@ class BindingDbBioactivesConnector(BaseBioactivesConnector):
                 continue
 
             compound_obj = BioactiveCompound(
-                source_db="BindingDB",
+                source_db='BindingDB',
                 source_id=monomer_id,
                 smiles=Chem.MolToSmiles(mol, canonical=True),
                 target_uniprot=target_uniprot_id,

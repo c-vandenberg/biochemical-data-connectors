@@ -86,7 +86,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         # 1. Map the UniProt accession to an NCBI GeneID.
         target_gene_id = self._lookup_target_gene_id(target_uniprot_id)
         if not target_gene_id:
-            self._logger.error(f"Could not determine GeneID for target '{target_uniprot_id}'.")
+            self._logger.error(f'Could not determine GeneID for target "{target_uniprot_id}".')
             return []
 
         # 2. Fetch Assay ID (AID) list using PubChem API, or load from cache
@@ -105,7 +105,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             return []
 
         # 3. Fetch active compound IDs (CIDs) for each assay using PubChem API, or load from cache.
-        cids_cache_file = os.path.join(self._cache_dir, f"pubchem/{target_gene_id}_cids.json")
+        cids_cache_file = os.path.join(self._cache_dir, f'pubchem/{target_gene_id}_cids.json')
         active_cids_list = get_cached_or_fetch(
             cache_file_path=cids_cache_file,
             fetch_function=lambda: self._fetch_all_cids(aids_list=aid_list),
@@ -115,14 +115,14 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         )
 
         if not active_cids_list:
-            self._logger.error(f"No active compounds found for GeneID {target_gene_id}.")
+            self._logger.error(f'No active compounds found for GeneID {target_gene_id}.')
             return []
 
         # 4. Fetch full `pubchempy.Compound` objects for all CIDs using PubChem API, or load from cache.
         pubchempy_compound_api_start: float = time.time()
         pubchempy_compound_cache_file = os.path.join(
             self._cache_dir,
-            f"pubchem/{target_gene_id}_pubchempy_compounds.pkl"
+            f'PubChem/{target_gene_id}_pubchempy_compounds.pkl'
         )
         pubchempy_compounds = get_cached_or_fetch(
             cache_file_path=pubchempy_compound_cache_file,
@@ -139,7 +139,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         # 5. Fetch bioassay data for all `pubchempy.Compound` compounds using PubChem API, or load from cache.
         bioassay_cache_file = os.path.join(
             self._cache_dir,
-            f"pubchem/{target_gene_id}_cid_bioassay_map.json"
+            f'PubChem/{target_gene_id}_cid_bioassay_map.json'
         )
         cid_to_bioassay_map = get_cached_or_fetch(
             cache_file_path=bioassay_cache_file,
@@ -155,7 +155,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         # 6. Create the final list of `BioactiveCompound` objects, using cache if available.
         bioactivecompound_cache_file = os.path.join(
             self._cache_dir,
-            f"pubchem/{target_gene_id}_unfiltered_bioactivecompounds.pkl"
+            f'PubChem/{target_gene_id}_unfiltered_bioactivecompounds.pkl'
         )
         all_bioactives: List[BioactiveCompound] = get_cached_or_fetch(
             cache_file_path=bioactivecompound_cache_file,
@@ -172,12 +172,12 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
         # 7. Filter final list of `BioactiveCompound` objects by potency if threshold is provided.
         if self._bioactivity_threshold is not None:
-            self._logger.info(f"Filtering {len(all_bioactives)} PubChem compounds with threshold: "
-                              f"<= {self._bioactivity_threshold} nM")
+            self._logger.info(f'Filtering {len(all_bioactives)} PubChem compounds with threshold: '
+                              f'<= {self._bioactivity_threshold} nM')
             filtered_bioactives: List[BioactiveCompound] = [
                 compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
             ]
-            self._logger.info(f"Found {len(filtered_bioactives)} PubChem compounds after filtering.")
+            self._logger.info(f'Found {len(filtered_bioactives)} PubChem compounds after filtering.')
 
             return filtered_bioactives
 
@@ -238,7 +238,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
         Dict[int, Dict[str, Any]]
             A dictionary mapping a CID to its fetched bioassay data.
         """
-        self._logger.info(f"Fetching bioassay data for {len(pubchempy_compounds)} compounds...")
+        self._logger.info(f'Fetching bioassay data for {len(pubchempy_compounds)} compounds...')
         potencies_api_start: float = time.time()
         cid_to_bioassay_map = {}
 
@@ -267,9 +267,9 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
                         cid_to_bioassay_map[str(compound.cid)] = bioassay_data
 
         potencies_api_end: float = time.time()
-        self._logger.info(f"PubChem bioactive compound bioassays total API query time: "
-                          f"{round(potencies_api_end - potencies_api_start)} seconds\n"
-                          f"Found bioassay data for {len(cid_to_bioassay_map)} compounds.")
+        self._logger.info(f'PubChem bioactive compound bioassays total API query time: '
+                          f'{round(potencies_api_end - potencies_api_start)} seconds\n'
+                          f'Found bioassay data for {len(cid_to_bioassay_map)} compounds.')
 
         return cid_to_bioassay_map
 
@@ -303,7 +303,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             compound_bioassay_data: Dict = cid_to_bioassay_map.get(str(pubchempy_compound.cid))
 
             if compound_bioassay_data is None:
-                self._logger.debug(f"Skipping compound CID {pubchempy_compound.cid} due to missing bioassay data.")
+                self._logger.debug(f'Skipping compound CID {pubchempy_compound.cid} due to missing bioassay data.')
                 continue
 
             compound_obj = self._create_bioactive_compound(
@@ -379,10 +379,10 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
             iupac_name=getattr(pubchempy_compound, 'iupac_name', None),
             molecular_formula=final_mol_formula,
             molecular_weight=format_mol_weight,
-            n_measurements=bioassay_data["n_measurements"],
-            mean_activity=round(bioassay_data["mean_value"], 2) if bioassay_data["mean_value"] else None,
-            median_activity=round(bioassay_data["median_value"], 2) if bioassay_data["median_value"] else None,
-            std_dev_activity=round(bioassay_data["std_dev_value"], 2) if bioassay_data["std_dev_value"] else 0.0,
+            n_measurements=bioassay_data['n_measurements'],
+            mean_activity=round(bioassay_data['mean_value'], 2) if bioassay_data['mean_value'] else None,
+            median_activity=round(bioassay_data['median_value'], 2) if bioassay_data['median_value'] else None,
+            std_dev_activity=round(bioassay_data['std_dev_value'], 2) if bioassay_data['std_dev_value'] else 0.0,
             raw_data=pubchempy_compound
         )
 

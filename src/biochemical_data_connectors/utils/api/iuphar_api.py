@@ -33,7 +33,7 @@ class IupharApiClient(BaseApiClient):
         iuphar_target_url = RestApiEndpoints.IUPHAR_TARGET_ID_FROM_UNIPROT.url(
             uniprot_id=uniprot_id
         )
-        self._logger.info(f"Querying IUPHAR/BPS Guide to Pharmacology API for Uniprot {uniprot_id} target ID")
+        self._logger.info(f'Querying IUPHAR/BPS Guide to Pharmacology API for Uniprot {uniprot_id} target ID')
         try:
             response = self._session.get(iuphar_target_url, timeout=15)
             response.raise_for_status()
@@ -49,7 +49,7 @@ class IupharApiClient(BaseApiClient):
             return target_id
 
         except requests.exceptions.RequestException as e:
-            self._logger.error(f"IUPHAR Guide to Pharmacology API request failed for target {uniprot_id}: {e}")
+            self._logger.error(f'IUPHAR Guide to Pharmacology API request failed for target {uniprot_id}: {e}')
 
             return None
 
@@ -81,7 +81,7 @@ class IupharApiClient(BaseApiClient):
 
         # 1. Iterate through the desired measure types and make a separate API call for each.
         for p_measure in p_bioactivity_measures:
-            self._logger.info(f"Querying IUPHAR/BPS for {p_measure} data for target ID {target_id}...")
+            self._logger.info(f'Querying IUPHAR/BPS for {p_measure} data for target ID {target_id}...')
 
             # 2. Build the URL with the affinityType filter.
             iuphar_interactions_url = RestApiEndpoints.IUPHAR_INTERACTIONS_FROM_TARGET_ID_FILTERED.url(
@@ -104,7 +104,7 @@ class IupharApiClient(BaseApiClient):
 
                     all_records.append(interaction)
             except requests.exceptions.RequestException as e:
-                self._logger.error(f"Error querying IUPHAR/BPS for {p_measure} at target {target_id}: {e}")
+                self._logger.error(f'Error querying IUPHAR/BPS for {p_measure} at target {target_id}: {e}')
 
         iuphar_interactions_query_end = time.time()
         self._logger.info(
@@ -169,7 +169,7 @@ class IupharApiClient(BaseApiClient):
 
             mol_data |= {'molecular_weight': round(iuphar_mol_properties.get('molecularWeight'), 2)}
         except requests.exceptions.RequestException as e:
-            self._logger.error(f"Error querying IUPHAR/BPS ligand {ligand_id} molecular properties: {e}")
+            self._logger.error(f'Error querying IUPHAR/BPS ligand {ligand_id} molecular properties: {e}')
             mol_data |= {'molecular_weight': None}
 
         return mol_data

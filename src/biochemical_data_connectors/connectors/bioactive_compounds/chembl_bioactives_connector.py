@@ -90,16 +90,16 @@ class ChemblBioactivesConnector(BaseBioactivesConnector):
         # 1. Search for the target by UniProt ID and retrieve the first matching result
         target_results = self._chembl_webresource_client.target.filter(target_components__accession=target_uniprot_id)
         if not target_results:
-            self._logger.error(f"No matching target found for UniProt ID {target_uniprot_id}")
+            self._logger.error(f'No matching target found for UniProt ID {target_uniprot_id}')
             return []
 
         target_chembl_id = target_results[0]['target_chembl_id']
 
         # 2. Fetch all activity records for this target, using the cache if available.
         os.makedirs(self._cache_dir, exist_ok=True)
-        chembl_acitivites_cache_file = os.path.join(self._cache_dir, f"ChEMBL/{target_chembl_id}_aids.json")
+        chembl_acitivites_cache_file = os.path.join(self._cache_dir, f'ChEMBL/{target_chembl_id}_aids.json')
 
-        self._logger.info(f"Fetching/loading all activities for ChEMBL ID {target_chembl_id}...")
+        self._logger.info(f'Fetching/loading all activities for ChEMBL ID {target_chembl_id}...')
         all_activity_records = get_cached_or_fetch(
             cache_file_path=chembl_acitivites_cache_file,
             fetch_function=lambda: self._chembl_api_client.get_activities_for_target(
@@ -110,7 +110,7 @@ class ChemblBioactivesConnector(BaseBioactivesConnector):
             force_refresh=force_refresh,
             logger=self._logger
         )
-        self._logger.info(f"Found {len(all_activity_records)} total activity records.")
+        self._logger.info(f'Found {len(all_activity_records)} total activity records.')
 
         # 3. Group all activity records by compound ID
         grouped_by_compound = defaultdict(list)
@@ -168,12 +168,12 @@ class ChemblBioactivesConnector(BaseBioactivesConnector):
             # 4.4. Calculate bioassay data statistics
             count = len(final_values)
             compound_bioassay_data = {
-                "activity_type": final_measure_type,
-                "activity_value": min(final_values),
-                "n_measurements": count,
-                "mean_activity": statistics.mean(final_values) if count > 0 else None,
-                "median_activity": statistics.median(final_values) if count > 0 else None,
-                "std_dev_activity": statistics.stdev(final_values) if count > 1 else 0.0,
+                'activity_type': final_measure_type,
+                'activity_value': min(final_values),
+                'n_measurements': count,
+                'mean_activity': statistics.mean(final_values) if count > 0 else None,
+                'median_activity': statistics.median(final_values) if count > 0 else None,
+                'std_dev_activity': statistics.stdev(final_values) if count > 1 else 0.0,
             }
 
             # 4.5. ChEMBL response doesn't provide InCHIKey, molecular formula, or molecular weight.
@@ -183,7 +183,7 @@ class ChemblBioactivesConnector(BaseBioactivesConnector):
                 continue
 
             compound_obj = BioactiveCompound(
-                source_db="ChEMBL",
+                source_db='ChEMBL',
                 source_id=chembl_id,
                 smiles=canonical_smiles,
                 target_uniprot=target_uniprot_id,
@@ -199,12 +199,12 @@ class ChemblBioactivesConnector(BaseBioactivesConnector):
         # 5. Filter the final list by the 'activity_value' if a threshold was provided.
         if self._bioactivity_threshold is not None:
             self._logger.info(
-                f"Filtering {len(all_bioactives)} ChEMBL compounds with threshold: <= {self._bioactivity_threshold} nM"
+                f'Filtering {len(all_bioactives)} ChEMBL compounds with threshold: <= {self._bioactivity_threshold} nM'
             )
             filtered_bioactives = [
                 compound for compound in all_bioactives if compound.activity_value <= self._bioactivity_threshold
             ]
-            self._logger.info(f"Found {len(filtered_bioactives)} ChEMBL compounds after filtering.")
+            self._logger.info(f'Found {len(filtered_bioactives)} ChEMBL compounds after filtering.')
 
             return filtered_bioactives
 

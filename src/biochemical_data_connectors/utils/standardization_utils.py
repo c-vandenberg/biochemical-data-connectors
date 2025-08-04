@@ -44,7 +44,7 @@ class CompoundStandardizer:
             # 1. Create initial RDKit `mol` object
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
-                self._logger.warning(f"Invalid input SMILES string: '{smiles}'")
+                self._logger.warning(f'Invalid input SMILES string: "{smiles}"')
 
             # 2. Remove salts to get the parent molecule
             parent_mol = self._salt_remover.StripMol(mol=mol)
@@ -62,19 +62,19 @@ class CompoundStandardizer:
             # 4. Create the final, fully standardized RDKit Mol object
             final_mol = Chem.MolFromSmiles(final_smiles)
             if final_mol is None:
-                self._logger.warning(f"Failed to create compound after standardization for SMILES string: '{smiles}'")
+                self._logger.warning(f'Failed to create compound after standardization for SMILES string: "{smiles}"')
 
             # 5. Generate final canonical representations
             canonical_smiles = Chem.MolToSmiles(final_mol, canonical=True, isomericSmiles=True)
             canonical_inchi_key = Chem.MolToInchiKey(final_mol)
 
             return {
-                "smiles": canonical_smiles,
-                "inchi_key": canonical_inchi_key
+                'smiles': canonical_smiles,
+                'inchi_key': canonical_inchi_key
             }
 
         except Exception as e:
-            self._logger.warning(f"Failed to standardize SMILES '{smiles}': {e}")
+            self._logger.warning(f'Failed to standardize SMILES "{smiles}": {e}')
 
             return None
 

@@ -53,15 +53,15 @@ def get_cached_or_fetch(
             with open(cache_file_path, 'r') as f:
                 cache_data = json.load(f)
 
-        cache_message = f"Found valid cache at {cache_file_path}. Loading {data_type} data from file."
+        cache_message = f'Found valid cache at {cache_file_path}. Loading {data_type} data from file.'
         logger.info(cache_message) if logger else print(cache_message)
 
-        data = cache_data["data"]
+        data = cache_data['data']
         cache_is_valid = True
 
     # 2) If cache file doesn't exist or `force_refresh == True`, call the provided fetch_function.
     if not cache_is_valid:
-        pre_api_message = f"Fetching fresh {data_type} data from API..."
+        pre_api_message = f'Fetching fresh {data_type} data from API...'
         logger.info(pre_api_message) if logger else print(pre_api_message)
 
         data = fetch_function()
@@ -69,8 +69,8 @@ def get_cached_or_fetch(
         # 3) Save the new results to the cache file with a current timestamp.
         if data:
             cache_content = {
-                "timestamp": datetime.now().isoformat(),
-                "data": data
+                'timestamp': datetime.now().isoformat(),
+                'data': data
             }
             os.makedirs(os.path.dirname(cache_file_path), exist_ok=True)
             if use_pickle:
@@ -80,7 +80,7 @@ def get_cached_or_fetch(
                 with open(cache_file_path, 'w') as f:
                     json.dump(cache_content, f, indent=4)
 
-            post_api_message = f"Saved {len(data)} {data_type} items to cache file: {cache_file_path}"
+            post_api_message = f'Saved {len(data)} {data_type} items to cache file: {cache_file_path}'
             logger.info(post_api_message) if logger else print(post_api_message)
 
     return data
