@@ -1,16 +1,18 @@
 # biochemical-data-connectors
 
-`biochemical-data-connectors` is a Python package for extracting chemical, biochemical, and bioactivity data from public databases like ChEMBL, PubChem, BindingDB, and the Open Reaction Database (ORD).
+`biochemical-data-connectors` is a Python package for extracting chemical, biochemical, and bioactivity data from public databases like ChEMBL, PubChem, BindingDB, IUPHAR/BPS Guide to PHARMACOLOGY, and the Open Reaction Database (ORD).
 
 ## Overview
-`biochemical-data-connectors` provides a simple and consistent interface to query major cheminformatics bioinformatics databases for compounds. It is designed to be a modular and reusable tool for researchers and developers in cheminformatics and drug discovery.
+`biochemical-data-connectors` provides a simple and consistent interface to query major cheminformatics bioinformatics databases for compounds. It is designed to be a modular and reusable tool for researchers and developers in computational chemistry and drug discovery, enabling the rapid curation of high-quality datasets for machine learning and analysis.
 
 ### Key Features
 1. **Bioactive Compounds**
    * **Unified Interface**: A single, easy-to-use abstract base class for fetching bioactives for a given target.
    * **Multiple Data Sources**: Includes concrete connectors for major public databases:
-     1. ChEMBL (`ChEMBLBioactivesExtractor`)
+     1. ChEMBL (`ChemblBioactivesExtractor`)
      2. PubChem (`PubChemBioactivesExtractor`)
+     3. BindingDB (`BindingDbBioactivesConnector`)
+     4. IUPHAR/BPS Guide to PHARMACOLOGY (IUPHARBioactivesConnector)
    * **Powerful Filtering**: Filter compounds by bioactivity type (e.g., Kd, IC50) and potency value.
    * **Efficient Fetching**: Uses concurrency to fetch data from APIs efficiently.
 2. **Chemical Reactions**

@@ -97,7 +97,7 @@ class ChemblBioactivesConnector(BaseBioactivesConnector):
 
         # 2. Fetch all activity records for this target, using the cache if available.
         os.makedirs(self._cache_dir, exist_ok=True)
-        chembl_acitivites_cache_file = os.path.join(self._cache_dir, f"chembl/{target_chembl_id}_aids.json")
+        chembl_acitivites_cache_file = os.path.join(self._cache_dir, f"ChEMBL/{target_chembl_id}_aids.json")
 
         self._logger.info(f"Fetching/loading all activities for ChEMBL ID {target_chembl_id}...")
         all_activity_records = get_cached_or_fetch(

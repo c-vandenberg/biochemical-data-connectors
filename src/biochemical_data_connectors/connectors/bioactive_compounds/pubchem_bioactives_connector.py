@@ -91,7 +91,7 @@ class PubChemBioactivesConnector(BaseBioactivesConnector):
 
         # 2. Fetch Assay ID (AID) list using PubChem API, or load from cache
         os.makedirs(self._cache_dir, exist_ok=True)
-        aids_cache_file = os.path.join(self._cache_dir, f"pubchem/{target_gene_id}_aids.json")
+        aids_cache_file = os.path.join(self._cache_dir, f"PubChem/{target_gene_id}_aids.json")
         aid_list = get_cached_or_fetch(
             cache_file_path=aids_cache_file,
             fetch_function=lambda: self._api_client.get_active_aids(target_gene_id),

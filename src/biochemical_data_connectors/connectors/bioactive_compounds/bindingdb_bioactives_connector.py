@@ -72,7 +72,7 @@ class BindingDbBioactivesConnector(BaseBioactivesConnector):
         """
         # 1. Fetch all activity records for this target, using the cache if available.
         os.makedirs(self._cache_dir, exist_ok=True)
-        bdb_activities_cache_file = os.path.join(self._cache_dir, f"bindingdb/{target_uniprot_id}.json")
+        bdb_activities_cache_file = os.path.join(self._cache_dir, f"BindingDB/{target_uniprot_id}.json")
 
         self._logger.info(f"Fetching/loading all BindingDB activities for Uniprot ID {target_uniprot_id}...")
         all_bdb_activity_records = get_cached_or_fetch(
