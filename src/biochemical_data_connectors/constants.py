@@ -15,7 +15,7 @@ CONVERSION_FACTORS_TO_NM = {
 class RestApiEndpoints(Enum):
     PDB_UNIPROT_ID_MAPPING = 'https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id}'
 
-    UNIPROT_PDB_ID_MAPPING = 'https://www.ebi.ac.uk/pdbe/api/mappings/pdb/{uniprot_id}'
+    UNIPROT_PDB_ID_MAPPING = 'https://www.ebi.ac.uk/pdbe/api/mappings/{uniprot_id}'
 
     UNIPROT_MAPPING = 'https://rest.uniprot.org/idmapping/run'
 
